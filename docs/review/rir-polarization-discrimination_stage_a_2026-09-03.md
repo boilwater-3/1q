@@ -82,14 +82,46 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、爆炸半径与回滚：下游消费方影响、回退难度（无损/破坏性/回滚注意点）。
-5、验收门：构建、聚焦测试、契约测试、特征化测试、探针转正（有回归价值的探针转正式测试）。
-6、非目标。
--->
+已证明的需求：
+- 四路复数极化散射字典（架构 B：场景层开机一次性载入、每周期窗口流入）→ 五个极化量各（均值+标准差）→ RV/重诱饵/轻诱饵/碎片 细分类型输出；现有验收旁路转正为识别特征链；旧 dBsm 极化输入格式拆除。
+
+允许范围：
+- 公共头 include/1q/remote_identification_radar/session/RirSceneTypes.h：删 `RirPolarizationRcsSample`；新增 `RirPolSMatrixSample`（视角方位/俯仰 + HH/HV/VH/VV 各幅度 dBsm+相位 deg 共 8 数，四路必备、无 has_* 开关）；`RirSceneTarget` 极化向量改型为窗口语义的 `std::vector<RirPolSMatrixSample>`。
+- 公共头 include/1q/remote_identification_radar/session/RirRecognitionResult.h：新增 `RirBallisticSubclass` 枚举（kReentryVehicle/kHeavyDecoy/kLightDecoy/kDebris/kUnknown）与 `RirRecognitionResult::ballistic_subclass` 平行字段（缺省 kUnknown）；`RirOutputDebugView.h` 同步；七粗类枚举不动。
+- 实现：src/remote_identification_radar/runtime/PolarizationAcceptanceS.{h,cpp} 重构为识别特征提取器（重命名 PolarizationFeatureExtractor，结果结构五量×(mean,std)）——窗口行→逐行 S 矩阵→五量→ψ 圆统计（均值角+角度散布）、τ 及其余三量算术均值/标准差；接入特征量测链（落点以 RirFeatureMeasurement 现有文件为准）。
+- 实现：src/remote_identification_radar/runtime/RirAcceptanceRecords.cpp 第 46 项五行改"XX均值/标准差=a/b"双值（格式对齐既有 RCS 均值/标准差行），目标类型行追加细分（非 kUnknown 时"弹头/重诱饵/轻诱饵/碎片"，kUnknown 时不追加）。
+- 判决：占位——细分恒 kUnknown，判据等甲方原件（登记开放议题）；禁止臆造阈值。
+- 场景层：examples/scenes/scene_data.cpp 删 pol_* 七键、新增极化字典文件读取（JSON 逐视角 8 数；甲方表格→JSON 转换等原件到手）；scene_script.{h,cpp} 删旧铺表、新增按当前视角的窗口裁剪（缺省 ±5°，场景 JSON 可配窗口跨度键）。
+- 新建弹道场景 examples/scenes/<新名>/：四类目标各一本**合成占位字典**（特征区分：弹头低去极化低起伏、碎片高去极化高起伏等，标注占位、原件到后替换），使用 ballistic_trajectory 组件。
+- 回放：schemas/replay/rir_replay.fbs 旧 `RirPolarizationRcsSample` 表替换为 `RirPolSMatrixSample` 表；RirReplayFlatbufferCodec.cpp 双向映射同步；标识符按仓内"升级+旧录制显式拒绝"纪律处理（细节以 Stage B 检视现行标识符机制为准）。
+- 测试：提取器单测重写（已知窗口行黄金值；ψ 缠绕反例 +89°/−89°→均值≈±90°、散布极小——探针转正）；回放 roundtrip 更新；新弹道场景跑通并检视验收行。
+
+明确禁止范围：
+- 判决判据臆造（阈值表/特征库新维度一律等原件）。
+- SQLite 特征库窗口化或 schema 变更（类型知识归库不动）。
+- RIR-OQ-1 加噪测量保真度升级（独立议题）。
+- 其他模块（AR/ESR/ECM）极化散射联动；docs/common/rf_architecture.md 极化配对规则不动。
+- 七粗类枚举变更；ψ 使用算术平均（必须圆统计）。
+- 测试阈值不放宽、不新增 skip。
+
+行为边界：
+- 输入：每目标每周期窗口行（十几行级，场景裁剪；空向量=极化维度无效）；幅度 dBsm（0 合法继承）、相位 deg；行内任一值非法=该行拒绝（fail-closed）。
+- 输出：特征结构极化块 {valid + 5×(mean,std)}；识别结果细分字段缺省 kUnknown；验收行按双值格式。
+- 回退：窗口空/非法→极化维度无效，验收行整行省略（继承"维度无效省略"规则），识别链跳过极化权重，不崩溃不冒充。
+- 生命周期：字典在场景进程内开机一次载入，库内不持有、不缓存。
+
+爆炸半径与回滚：
+- 拆旧为破坏性变更：公共结构删除+回放 schema 表替换；实测无场景/录制消费旧结构（grep 零出现），风险集中在测试与 codec 同步。
+- 回退难度：破坏性——合并前分支内可回滚，合并后需 revert。
+
+验收门：
+- 全量构建 + 全量 ctest 63 项全绿（docs_structure_guard 含）。
+- 聚焦：unit::remote_identification_radar、replay::remote_identification_radar、新场景 SMOKE 跑通。
+- 探针转正：ψ 圆统计黄金值（缠绕反例）；五量统计已知输入；回放新表 roundtrip。
+- pre-commit major 门禁经 completeness-review 后提交。
+
+非目标：
+- 同矩阵第 10 项：特征库窗口化、加噪测量升级、他模块联动；另加：甲方表格格式转换器（等原件）。
 
 ## 修订记录
 
@@ -97,6 +129,7 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 
 修订 1（2026-09-03，用户指令）：DB 语义裁定＝**碎片（Debris）**——矩阵第 8 项 defer 转正；枚举命名建议 kDebris、中文注释"碎片"；判决判据（第 7 项）与验收行格式（第 9 项）仍待甲方原件。
 修订 2（2026-09-03，作者自纠）：第 5 项中"τ∈±45° 环绕"表述有误——椭圆率 τ 的区间两端（±45°）是左旋/右旋圆极化两个**不同**物理态，无缠绕；确凿的环绕问题仅在方向角 ψ（周期 180°，−90° 与 +90° 物理同向）。冻结口径修正为：ψ 用圆统计（均值角+角度散布），τ 直接算术平均；第 5 项判定维持 pass。
+修订 3（2026-09-03，用户指令）：五问全部裁定——1、架构 B 冻结（大表场景层开机载入、每周期窗口流入、库输入契约形状不变）；2、窗口跨度缺省 ±5°（场景侧可配置）；3、枚举落位＝平行"弹道细分类型"字段，七粗类不动；4、场景载体＝**新建弹道场景**（不扩展 ground_site）；5、**旧极化输入格式拆除**（用户裁定"拆"，否决矩阵第 3 项并存建议——旧 dBsm 结构、旧回放样本表、旧场景键一并移除，回放按仓内标识符纪律显式拒绝旧录制）；判决判据（第 7 项）与验收行格式（第 9 项）继续等甲方原件，判决层按"占位恒未判＋登记开放议题"先行。
 
 
 ## §4 运行记录（Stage C 后填写）
