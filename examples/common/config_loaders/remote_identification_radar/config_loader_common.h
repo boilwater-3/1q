@@ -41,6 +41,7 @@ inline oneq::electromagnetics::RfScenePolarization RfScenePolarizationFromString
   if (s == "kRightHandCircular") return RfScenePolarization::kRightHandCircular;
   if (s == "kLeftHandCircular") return RfScenePolarization::kLeftHandCircular;
   if (s == "kUnpolarized") return RfScenePolarization::kUnpolarized;
+  if (s == "kFullPolarization") return RfScenePolarization::kFullPolarization;
   return RfScenePolarization::kHorizontal;
 }
 
