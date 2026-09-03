@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen（契约已附）
 Date: 2026-09-03
 Review-Baseline: `evidence/sensor-entity-id-unification` @ `fba3ea13`
 Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -56,20 +56,67 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 1、项 1-6 建议 pass（其中项 6 为"确认豁免"），项 7 建议 reject（拒绝容器化改造，保留数组索引）。
 2、全部判定依据的探针已于 2026-09-03 实际执行，结果写入 §1。
 
-需要用户拍板的问题：
-1、**位宽调整（对既有裁定 2 的收窄提议，探针新证据）**：RfScene 的平台号/设备号均为 uint64，RIR 的 sensor_platform_id 是 RF 域身份（须与 RF 场景平台号同域匹配），若统一收窄为 uint32 会与 RF 场景类型不匹配。提议：uint32 只约束纯标注域注入面（AR/ESR/EOS/SBIRS 的 Set*EntityId）；RIR 的 SetSensorPlatformId 保持 uint64。请确认。
-2、甲方实体 ID 的实际形态（起始编号、位宽）待补——不影响本轮冻结，影响集成条款写死还是留弹性；无输入时按"非零、≤uint32、大号配权走集成侧映射"三条通用核对写入契约。
+需要用户拍板的问题（处理状态）：
+1、位宽问题已由修订 8 解决——RIR 整体随 RF 记账号下一阶段处理，本轮标注域注入面全部 uint32，无位宽冲突。
+2、甲方实体 ID 的实际形态（起始编号、位宽）无输入，按"非零、≤uint32、大号且需差异化配权时集成侧映射"三条通用核对写入 §3 行为边界-输入。
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、爆炸半径与回滚：下游消费方影响、回退难度（无损/破坏性/回滚注意点）。
-5、验收门：构建、聚焦测试、契约测试、特征化测试、探针转正（有回归价值的探针转正式测试）。
-6、非目标。
--->
+已证明的需求：
+- AR/ESR/EOS 库内周期摘要日志行不含设备标识，同型多实例无法区分（§1 项 1 探针证实）。
+- 融合通道号在各组件写死编译期常量，同型多实例在融合端不可分（§1 项 5 背景证据）。
+- SBIRS 单站回退把 World 自增实体号混入融合通道域并截断（§1 项 3）。
+
+允许范围：
+- 库内公共接口（include/1q，仅三处新增，零修改既有符号）：
+  1、`ArSession::SetSensorEntityId(std::uint32_t)`。
+  2、`EsrSession::SetSensorEntityId(std::uint32_t)`。
+  3、`EosSession::SetSensorEntityId(std::uint32_t)`。
+  4、三者语义：构造后注入设备号；传 0=未注入（恢复缺省）；任意时刻可调，下一周期起生效。
+- 库内实现（src）：
+  1、AR/ESR/EOS：session Impl 持值→controller/pipeline 透传；周期摘要日志行（[SignalPipeline]/[InterceptPipeline]/[EosPipeline]）新增设备号字段（未注入时显示缺省融合常量值）。
+  2、SBIRS 与 RIR 的 src 零改动。
+- 示例层（examples）：
+  1、ar/esr/eos_sensor_component：构造接受设备号（缺省=kXxxSourceId），调 session.SetSensorEntityId，并以设备号打融合通道（替代写死常量）。
+  2、rir_sensor_component：构造接受设备号（缺省=kRirSourceId），以设备号打融合通道；会话级注入与库内日志统一属下一阶段（RF 记账号域）。
+  3、sbirs_sensor_component：单站回退 host.id() 改为 fusion::kSbirsSourceId。
+  4、场景装载：新增顶层可选块 `"device_ids"`（形如 {"ar":N,"esr":N,"eos":N,"sbirs":N,"rir":N}，键皆可选；不进 session_config 块，不改 sensors 布尔块）；显式值全场景查重（含 SBIRS satellites[].source_id，重复报错）；runner 装配接线到组件。
+- 测试与文档：
+  1、AR/ESR/EOS setter 契约测试：缺省不注入=现状行为；注入后日志行携带设备号。
+  2、场景查重测试：device_ids 内部重复报错；与 satellites[].source_id 撞号报错。
+  3、SBIRS 单站回退特征化用例：新值=kSbirsSourceId。
+  4、探针转正：§1 项 1 的日志格式断言转正式测试（三模块周期摘要行含设备号字段）。
+
+明确禁止范围：
+- 公共头：不修改/删除任何既有公共符号；不新增除上述三个 setter 外的公共 API；不动 include/1q/sbirs_sensor 与 include/1q/remote_identification_radar。
+- 跨模块类型：不引入跨模块 ID 基类、公共接口或新的公共常量头。
+- schema/trace/replay：不改任何 Replay schema、周期记录 DTO、IssueList、事件结构。
+- session_config：本轮零改动（RIR sensor_platform_id 保留原样，迁出与废弃属下一阶段）。
+- 融合库（src/fusion、include/1q/fusion）：零改动（适配器签名本就收 source_id 参数；source_weights 机制保留，§1 项 7 reject）。
+- 测试阈值/skip：不放宽、不新增 skip。
+
+行为边界：
+- 输入：设备号=非零 uint32；传 0=未注入哨兵（恢复缺省常量），不报错；集成方可直接注入甲方实体 ID（须避开 0、≤uint32；大号且需差异化配权时由集成侧映射，库不做映射）。
+- 输出：三个管线周期摘要行新增设备号字段（属周期摘要规则允许的"模块自定附加字段"）；其余输出通道（产品帧/事件/replay）逐字段不变。
+- 缺省兼容：不注入设备号的现有场景，融合通道号与现状一致（各缺省常量）；SBIRS 单站标注数值变化（host.id()→kSbirsSourceId），仅影响日志/事件标注值，无计算消费方。
+- 生命周期：无新增生命周期语义；setter 不进 RuntimeConfigPatch、不进电源/事务模型。
+
+爆炸半径与回滚：
+- 下游消费方：融合组件（通道号来源从常量变为注入值，缺省=常量，现场景零变化）；日志读者（行格式增一字段；仓内日志按当前 HEAD 重跑对账，无跨版本日志字节稳定要求）。
+- 回退难度：无损——回滚=删除 setter 调用、日志字段与场景键；无 schema/config/数据迁移。
+
+验收门：
+- 构建：既有 preset 全量构建通过。
+- 聚焦测试：AR/ESR/EOS setter 契约测试 + 场景查重测试 + SBIRS 回退特征化用例。
+- 契约测试：tests/contract 既有测试不回归（含 check_cross_domain_naming、attribution_mounting_guard）。
+- 场景冒烟：sbirs_triple_sat_fix_messages 与 rir_ground_site_recognition 重跑过门（79/80 等既有断言不回归）。
+- 探针转正：见允许范围-测试与文档第 4 条。
+
+非目标：
+- RF 记账号域全部改动：RIR sensor_platform_id 迁出 config 及其位宽裁定、equipment_id、AR platform_entity_id 注入方式、RIR 会话级注入面与库内日志统一——下一阶段处理；Stage C 回写时按用户批注登记开放议题。
+- SAR/ECM：本轮不加设备号（SAR 不进融合、无已证明的多实例区分需求；ECM 为效应器）。SAR 日志行统一可与下一阶段同形补齐。
+- 融合 source_weights 容器化（§1 项 7 reject）。
+- World 实体 ID 机制改造（examples/core/world.h 自增分配不动）。
 
 ## 修订记录
 
@@ -80,6 +127,8 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 - 修订 5（2026-09-03，用户裁定）：AR 的 platform_entity_id 每拍经 ArPlatformInput 注入保留不动，不迁移到 session setter。
 - 修订 6（2026-09-03，用户裁定）：设备 ID 消费面=1q.log 行前缀、验收行标注、融合通道号三处；AR/ESR/EOS 库内消费点=管线周期摘要日志行（三模块无库内验收 writer，验收行落在 examples 组件层）。
 - 修订 7（2026-09-03，用户裁定）：集成主路径=甲方实体 ID 直用（0 保留为未注入哨兵须避开、≤uint32、大号且需差异化配权时集成侧映射兜底，库不做映射）。
+- 修订 8（2026-09-03，用户裁定）：本轮范围收窄为设备号（标注域）统一；RF 记账号域整体——RIR sensor_platform_id 迁出 config 及其 uint32/uint64 位宽裁定、equipment_id、AR platform_entity_id 每拍注入方式——留待下一阶段处理。§2 问题 1 随之解决（本轮标注域注入面全部 uint32，无位宽冲突）。§1 项 4 的 pass 判定维持，实施随下一阶段。
+- 修订 9（2026-09-03，用户文档批注）：修订 5 所述 AR platform_entity_id 注入方式议题与 RF 记账号域统一，Stage C 回写时登记开放议题（docs/common/open_questions.md）。
 
 ## §4 运行记录（Stage C 后填写）
 
