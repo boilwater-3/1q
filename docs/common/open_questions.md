@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-23
+Last-reviewed: 2026-09-03
 ---
 
 # 跨模块开放议题
@@ -24,6 +24,8 @@ Last-reviewed: 2026-08-23
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
 | COMMON-OQ-10 | common | examples 会话配置三处同构维护 | 模板 + 16 场景 JSON + loader 键映射靠人工同步，字段变更漏一处即静默失配 | open |
+| COMMON-OQ-11 | common | AR/ESR/ECM 全极化放行冻结 | kFullPolarization 仅 RIR 放行；共享计算层已支持值 5 | open |
+| COMMON-OQ-12 | common | 全极化对非极化功率守恒口径 | 冻结保守 3.0103 dB；守恒 0 dB 口径待干扰/杂波定量验收触发 | open |
 | SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
 | SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
@@ -120,6 +122,31 @@ Last-reviewed: 2026-08-23
   引入"部分字段块"混用形态。
 - **再进入条件 (Stage A)**：下一次传感器配置字段增删改需触及超过 5 份 JSON，
   或发现任一场景 `session_config` 键树与模板漂移。
+
+### COMMON-OQ-11：AR/ESR/ECM 全极化放行冻结
+
+- **现状**：`kFullPolarization`（2026-09-03 落地）仅 RIR 的 `scene_polarization` 放行；
+  AR/ESR/ECM 冻结——配置不放行、加载器不加拼写、回放不接。公共纯函数层
+  （两条枚举链的失配计算）已支持值 5，模块差异只在配置/加载器/回放放行面。
+  [evidence: docs/common/rf_architecture.md]
+  [evidence: src/electronic_surveillance_radar/session/EsrSessionConfigValidation.cpp]
+- **后果**：三模块的仿真无法表达全极化收/发；程序化直接填值 5 时共享计算层会按全极化规则求解
+  （ESR 经校验拒绝，AR/ECM 无校验拦截）。
+- **待决问题**：某模块需要全极化时按何口径解冻（加载器拼写、校验上限、回放往返断言一次配齐）。
+- **当前边界**：RIR 之外不得放开 `kFullPolarization`；解冻前不得为 AR/ESR/ECM 加放行代码。
+- **再进入条件 (Stage A)**：AR/ESR/ECM 任一模块立项需要全极化工作模式。
+
+### COMMON-OQ-12：全极化对非极化的功率守恒口径
+
+- **现状**：全极化对非极化冻结为保守 3.0103 dB（"任一侧非极化固定 3.0103 dB"公理优先于
+  全极化规则）；物理上双通道功率相加可回收全部非极化功率（0 dB）。
+  [evidence: src/common/electromagnetics/RfLinkBudget.cpp]::TryPolarizationLoss
+  [evidence: tests/unit/common/common_rf_scene_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
+- **后果**：全极化接收对非极化干扰/杂波按半功率计入——对接收方偏乐观（漏计一半干扰功率）；
+  对信号检测偏保守。
+- **待决问题**：是否改按功率守恒 0 dB 口径，或按"信号/干扰分路"区分口径。
+- **当前边界**：维持 3.0103 dB 单一口径；不得在一处改口径而不动另一条枚举链。
+- **再进入条件 (Stage A)**：出现以非极化干扰/杂波为对象的定量验收或标定需求。
 
 ## Airborne Radar 非阻塞边界
 

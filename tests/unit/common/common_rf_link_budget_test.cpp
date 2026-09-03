@@ -158,6 +158,40 @@ TEST(RfLinkBudgetTest, AntennaPolarizationAndCoSiteIsolationAreMonotonic) {
   EXPECT_DOUBLE_EQ(low_isolation.segment_results.front().free_space_loss_db, 0.0);
 }
 
+TEST(RfLinkBudgetTest, FullPolarizationPairingAppliesMergeAndHalfRules) {
+  const RfReceiverSite receiver = MakeReceiver();
+  RfEmission full_tx = MakeEmission(1000.0);
+  full_tx.polarization = RfPolarization::kFullPolarization;
+  RfReceiverSite full_rx = MakeReceiver();
+  full_rx.polarization = RfPolarization::kFullPolarization;
+  RfLinkResult result;
+
+  // 全极化发射 → 单极化接收：正交两分量只收其一（一半功率）。
+  ASSERT_TRUE(TryEvaluateRfLink(full_tx, receiver, {}, &result));
+  EXPECT_NEAR(result.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+
+  // 固定极化发射 → 全极化接收：两正交通道合并收满。
+  ASSERT_TRUE(TryEvaluateRfLink(MakeEmission(1000.0), full_rx, {}, &result));
+  EXPECT_DOUBLE_EQ(result.polarization_mismatch_loss_db, 0.0);
+
+  // 全极化对全极化：0 dB。
+  ASSERT_TRUE(TryEvaluateRfLink(full_tx, full_rx, {}, &result));
+  EXPECT_DOUBLE_EQ(result.polarization_mismatch_loss_db, 0.0);
+
+  // 任一侧非极化公理不变：固定 3.01 dB。
+  RfReceiverSite unpolarized_rx = MakeReceiver();
+  unpolarized_rx.polarization = RfPolarization::kUnpolarized;
+  ASSERT_TRUE(TryEvaluateRfLink(full_tx, unpolarized_rx, {}, &result));
+  EXPECT_NEAR(result.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+  RfEmission unpolarized_tx = MakeEmission(1000.0);
+  unpolarized_tx.polarization = RfPolarization::kUnpolarized;
+  ASSERT_TRUE(TryEvaluateRfLink(unpolarized_tx, full_rx, {}, &result));
+  EXPECT_NEAR(result.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+
+  // 探针转正：kFullPolarization 为合法枚举值，发射帧校验放行。
+  EXPECT_TRUE(TryValidateRfEmissionFrame({full_tx}, 1.0));
+}
+
 TEST(RfLinkBudgetTest, InvalidInputsAndMissingCoSiteIsolationRejectAtomically) {
   RfReceiverSite receiver = MakeReceiver();
   RfEmission invalid = MakeEmission(1000.0);

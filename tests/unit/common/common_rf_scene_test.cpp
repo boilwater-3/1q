@@ -52,6 +52,41 @@ TEST(RfSceneTest, DistanceAndPowerCharacterizationMatchOneWayBudget) {
               3.0103, 1.0e-3);
 }
 
+TEST(RfSceneTest, FullPolarizationPairingAppliesMergeAndHalfRules) {
+  RfSceneReceiverState receiver = MakeReceiver();
+  receiver.polarization = RfScenePolarization::kHorizontal;
+  RfSceneEmission full_tx = MakeNoiseEmission(1U, 1000.0, 10.0);
+  full_tx.polarization = RfScenePolarization::kFullPolarization;
+  RfSceneReceiverState full_rx = MakeReceiver();
+  full_rx.polarization = RfScenePolarization::kFullPolarization;
+  RfIncidentLinkConfig config;
+  RfIncidentLinkResult link;
+
+  // 全极化发射 → 单极化接收：正交两分量只收其一（一半功率）。
+  ASSERT_TRUE(TryEvaluateRfIncidentLink(full_tx, receiver, config, &link));
+  EXPECT_NEAR(link.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+
+  // 固定极化发射 → 全极化接收：两正交通道合并收满。
+  RfSceneEmission fixed_tx = MakeNoiseEmission(2U, 1000.0, 10.0);
+  fixed_tx.polarization = RfScenePolarization::kHorizontal;
+  ASSERT_TRUE(TryEvaluateRfIncidentLink(fixed_tx, full_rx, config, &link));
+  EXPECT_DOUBLE_EQ(link.polarization_mismatch_loss_db, 0.0);
+
+  // 全极化对全极化：0 dB。
+  ASSERT_TRUE(TryEvaluateRfIncidentLink(full_tx, full_rx, config, &link));
+  EXPECT_DOUBLE_EQ(link.polarization_mismatch_loss_db, 0.0);
+
+  // 任一侧非极化公理不变：固定 3.01 dB。
+  RfSceneReceiverState unpolarized_rx = MakeReceiver();
+  unpolarized_rx.polarization = RfScenePolarization::kUnpolarized;
+  ASSERT_TRUE(TryEvaluateRfIncidentLink(full_tx, unpolarized_rx, config, &link));
+  EXPECT_NEAR(link.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+  RfSceneEmission unpolarized_tx = MakeNoiseEmission(3U, 1000.0, 10.0);
+  unpolarized_tx.polarization = RfScenePolarization::kUnpolarized;
+  ASSERT_TRUE(TryEvaluateRfIncidentLink(unpolarized_tx, full_rx, config, &link));
+  EXPECT_NEAR(link.polarization_mismatch_loss_db, 3.0103, 1.0e-4);
+}
+
 TEST(RfSceneTest, PropagationDelayDopplerAndPriorCycleArrivalAreExplicit) {
   RfSceneReceiverState receiver = MakeReceiver();
   receiver.window_start_time_s = 10.0;

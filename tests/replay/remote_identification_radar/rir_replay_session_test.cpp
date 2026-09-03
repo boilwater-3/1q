@@ -203,6 +203,22 @@ TEST(RirReplaySessionTest, ConfigAndInputPayloadsRoundtripByteExact) {
   EXPECT_DOUBLE_EQ(decoded_input.platform_position.x_m, input.platform_position.x_m);
 }
 
+/// @brief 全极化（kFullPolarization=5）经会话配置载荷字节精确往返：
+///        replay 的 scene_polarization 为 int 槽位，新枚举值无需 schema 变更。
+TEST(RirReplaySessionTest, FullPolarizationSessionConfigRoundtripsByteExact) {
+  config::RirSessionConfig config = MakeIdentifyConfig();
+  config.hardware.receiver.scene_polarization =
+      oneq::electromagnetics::RfScenePolarization::kFullPolarization;
+
+  const std::string encoded_config = EncodeRirSessionConfig(config);
+  config::RirSessionConfig decoded_config;
+  std::string error;
+  ASSERT_TRUE(DecodeRirSessionConfig(encoded_config, &decoded_config, &error)) << error;
+  EXPECT_EQ(EncodeRirSessionConfig(decoded_config), encoded_config);
+  EXPECT_EQ(decoded_config.hardware.receiver.scene_polarization,
+            oneq::electromagnetics::RfScenePolarization::kFullPolarization);
+}
+
 /// @brief 会话配置载荷拒绝旧标识符：v3（2026-08-30）tracking 策略表删除
 ///        全链未消费的 kalman_measurement_noise_std 槽位，RIRD 升 RIRE；
 ///        v2（2026-08-30）receiver 表槽位前移，RIRC 升 RIRD。旧录制必须
