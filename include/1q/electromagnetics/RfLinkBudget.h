@@ -31,13 +31,14 @@ enum class RfInterferenceMode : std::uint8_t {
   kEngineering = 2,
 };
 
-/** @brief RF 发射或接收端的名义极化。 */
+/** @brief RF 发射或接收端的名义极化或极化工作模式。 */
 enum class RfPolarization : std::uint8_t {
   kHorizontal = 0,
   kVertical = 1,
   kRightHandCircular = 2,
   kLeftHandCircular = 3,
   kUnpolarized = 4,
+  kFullPolarization = 5, /**< 全极化：两条相互垂直的极化通道同时工作。 */
 };
 
 /** @brief ECEF 坐标系中的单位方向向量。 */

@@ -29,10 +29,12 @@ enum class RfSceneWaveformKind : std::uint8_t {
 };
 
 /**
- * @brief RF v2 使用的名义极化类别。
+ * @brief RF v2 使用的名义极化或极化工作模式类别。
  * @note 极化描述电场摆动方向；收发两侧配对使用（emission 与 receiver 各填一个），
  *       配对结果决定 polarization_mismatch_loss_db：同值 0 dB；同为线极化互垂或同为
- *       圆极化旋向相反取 cross_polarization_isolation_db；线圆互配或任一侧非极化固定 3.01 dB。
+ *       圆极化旋向相反取 cross_polarization_isolation_db；线圆互配或任一侧非极化固定 3.01 dB；
+ *       全极化为两条相互垂直的极化通道同时工作——全极化接收对任意固定极化合并收满 0 dB，
+ *       单极化接收全极化发射只收一半 3.01 dB，全极化对全极化 0 dB，对非极化仍 3.01 dB。
  */
 enum class RfScenePolarization : std::uint8_t {
   kHorizontal = 0,        /**< 水平线极化：电场沿水平方向直线摆动。 */
@@ -40,6 +42,7 @@ enum class RfScenePolarization : std::uint8_t {
   kRightHandCircular = 2, /**< 右旋圆极化：电场端点按右手方向画圆旋转。 */
   kLeftHandCircular = 3,  /**< 左旋圆极化：电场端点按左手方向画圆旋转，与右旋相反。 */
   kUnpolarized = 4,       /**< 非极化：摆动方向不固定，与任一侧配对均取 3.01 dB 保守损耗。 */
+  kFullPolarization = 5,  /**< 全极化：两条相互垂直的极化通道同时工作。 */
 };
 
 /** @brief ECEF 坐标系中的方向向量；求解时会归一化。 */
