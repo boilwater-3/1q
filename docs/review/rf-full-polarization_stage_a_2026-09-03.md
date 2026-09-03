@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: final
 Date: 2026-09-03
 Review-Baseline: `evidence/rf-full-polarization` @ `fba3ea13`
 Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -131,14 +131,29 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 对照强制回写清单勾项，全部完成才允许拆脚手架（见 SKILL.md 收尾规则）：
-1、实现范围：改动文件与接口。
-2、验证命令与结果：命令: pass/fail（含转正的探针测试）。
+1、实现范围：
+1、公共头两侧：RfPolarization/RfScenePolarization 加 kFullPolarization=5，注释"名义极化或极化工作模式"。
+2、实现两侧：RfLinkBudget.cpp 与 RfScene.cpp 的 IsKnownPolarization、TryPolarizationLoss 全极化分支（逐行同构）。
+3、RIR 配套：加载器拼写 "kFullPolarization"；回放配置值 5 字节精确往返断言。
+4、测试：两条枚举链五组配对单测（探针转正）＋帧校验放行断言。
+
+2、验证命令与结果（VisualStudio.15.0-amd64 Release，2026-09-03）：
+1、`cmake --build build/VisualStudio.15.0-amd64 --config Release --parallel 8`: pass（零错误，仅存量告警）。
+2、`ctest -C Release --parallel 4`: pass——全量 63/63（含 docs_structure_guard）。
+3、聚焦：unit::common、unit::remote_identification_radar、contract/integration/replay::remote_identification_radar 全绿。
+4、审查：completeness-review Lane 1（major 门禁）：0 高 / 0 中 / 3 低（断言区分力与注释详略建议，不阻塞）。
+
 3、权威回写去向：
-   1、正向边界：docs/<module>/design.md（boundaries/data-flow/algorithms 按归属选）。
-   2、否决记录：docs/<module>/design.md 的"架构裁定与否决记录"专节（体裁见 docs-governance-standard）。
-   3、开放议题：docs/common/open_questions.md 登记（编号）。
-   4、证据锁：新增/修订规则后附 - **证据**：[evidence: 路径]。
-4、残留风险。
-5、后续冻结项。
--->
+1、正向边界：docs/common/rf_architecture.md（单程链路边界·极化配对规则四条＋证据锁；Last-reviewed 2026-09-03）。
+2、否决记录：docs/remote_identification_radar/design.md"架构裁定与否决记录"专节（AR/ESR/ECM 放行、dual_channel 字段化、非极化 0 dB 守恒口径三项否决）。
+3、开放议题：docs/common/open_questions.md（COMMON-OQ-11 全极化放行冻结、COMMON-OQ-12 非极化守恒口径）。
+4、证据锁：[evidence: tests/unit/common/common_rf_link_budget_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules、[evidence: tests/unit/common/common_rf_scene_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules、[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]::FullPolarizationSessionConfigRoundtripsByteExact。
+
+4、残留风险：
+1、全极化对非极化保守 3.0103 dB 口径对全极化接收方漏计一半非极化干扰功率（COMMON-OQ-12 跟踪）。
+2、AR/ECM 无 scene_polarization 校验拦截：程序化直填值 5 时共享计算层会按全极化求解（ESR 有 0..4 校验拒绝；配置文件路径无拼写放行，实际不可达）。
+3、加载器未知拼写静默回退 kHorizontal 既有陷阱未整改（未立案，非本轮范围）。
+
+5、后续冻结项：
+1、AR/ESR/ECM 全极化解冻（COMMON-OQ-11）。
+2、非极化守恒/分路口径（COMMON-OQ-12）。

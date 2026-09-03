@@ -68,3 +68,22 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   [algorithms.md](algorithms.md)
 
 跨模块公共规则见 `docs/common/contract.md`。
+
+## 架构裁定与否决记录
+
+1、**AR/ESR/ECM 放行全极化**（2026-09-03 否决）：Stage A 曾评估四模块全部放开
+   `kFullPolarization`；裁定仅 RIR 的 `scene_polarization` 放行，其余模块冻结——配置不放行、
+   加载器不加拼写、回放不接。ESR 会话校验 0..4 上限天然拒绝值 5；AR/ECM 无放行路径。
+   解冻登记为开放议题 COMMON-OQ-11。
+   - **证据**：[evidence: src/electronic_surveillance_radar/session/EsrSessionConfigValidation.cpp]
+   - **证据**：[evidence: docs/common/rf_architecture.md]（配对规则与模块放行范围）
+2、**dual_channel 能力字段化建模**（2026-09-03 否决）：提议不新增枚举值、另开双通道能力
+   字段表达全极化；被否——四个回放 schema 的极化字段为 int 槽位，加字段破坏 schema，而枚举值
+   零 schema 变更即可字节精确往返；且 `kUnpolarized` 已确立"极化工作状态"类别先例。
+   - **证据**：[evidence: schemas/replay/rir_session_replay.fbs]::scene_polarization
+   - **证据**：[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]::FullPolarizationSessionConfigRoundtripsByteExact
+3、**全极化对非极化 0 dB 功率守恒口径**（2026-09-03 否决）：物理上双通道功率相加可回收全部
+   非极化功率（0 dB）；被否——"任一侧非极化固定 3.0103 dB"公理保持不动（保守、改动最小），
+   守恒口径登记为开放议题 COMMON-OQ-12。
+   - **证据**：[evidence: src/common/electromagnetics/RfLinkBudget.cpp]::TryPolarizationLoss
+   - **证据**：[evidence: docs/common/open_questions.md]（COMMON-OQ-12）

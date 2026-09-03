@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-09-03
 Authority: AR/ESR/ECM/RIR 公共 RF 工程架构
 Answers: 公共 RF 事实域如何设计、发射事实四级 provenance、单周期数据交换时序、接收机四层影响分层
 ---
@@ -41,6 +41,21 @@ co-site isolation 是"发射 equipment → 接收 equipment"的有向硬件路�
 2. 大气公共层只提供路径附加损耗。
 3. 匹配滤波、脉冲压缩、通道化、处理增益、热噪声账本、Pd/Pfa、receiver impairment、观测误差和 ECCM
    均由具体传感器拥有。
+
+极化失配损耗的配对规则（`RfPolarization` 与 `RfScenePolarization` 两条枚举链同构实现，2026-09-03 冻结）：
+
+1. 固定极化配固定极化：同值 0 dB；同为线极化互垂或同为圆极化旋向相反取 `cross_polarization_isolation_db`；
+   线圆互配 3.0103 dB。
+2. 全极化（`kFullPolarization`，两条相互垂直的极化通道同时工作）：全极化接收对任意固定极化发射
+   合并收满 0 dB；单极化接收全极化发射只收一半 3.0103 dB；全极化对全极化 0 dB；全极化配对不取
+   交叉极化隔离。
+3. 任一侧非极化固定 3.0103 dB，该公理优先于全极化规则（全极化对非极化同为 3.0103 dB）。
+4. 模块放行范围：仅 RIR 的 `scene_polarization` 允许填全极化（一个旋钮填收发两侧，全极化下自配对
+   full/full＝0 dB）；AR/ESR/ECM 冻结不放行。
+- **证据**：[evidence: tests/unit/common/common_rf_link_budget_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
+- **证据**：[evidence: tests/unit/common/common_rf_scene_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
+- **证据**：[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]::FullPolarizationSessionConfigRoundtripsByteExact
+- **证据**：[evidence: src/electronic_surveillance_radar/session/EsrSessionConfigValidation.cpp]（ESR 0..4 上限天然拒绝全极化）
 
 AR/RIR 目标回波使用模块自有的双程雷达方程与 RCS，外部雷达、ECM 和其他 RF 源才走公共单程链路。ESR 接收面
 不预先区分"目标发射"和"干扰发射"，所有实际发射先进入同一个冻结 RF scene，意图/阵营只允许进入仿真
