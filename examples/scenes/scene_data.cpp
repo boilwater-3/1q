@@ -600,13 +600,31 @@ bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
       target.has_rir_features = true;
       target.rir_rcs_dbsm = ReadDouble(rir, "rcs_dbsm", 0.0);
       // 极化通道显式给值才铺样（0 dBsm 合法，不能按零值判缺省）。
-      target.has_rir_polarization = rir.Has("pol_ch1_dbsm") || rir.Has("pol_ch2_dbsm");
-      target.rir_pol_ch1_dbsm = ReadDouble(rir, "pol_ch1_dbsm", 0.0);
-      target.rir_pol_ch2_dbsm = ReadDouble(rir, "pol_ch2_dbsm", 0.0);
-      target.has_rir_pol_cross = rir.Has("pol_cross_dbsm");
-      target.rir_pol_cross_dbsm = ReadDouble(rir, "pol_cross_dbsm", 0.0);
-      target.has_rir_pol_phase = rir.Has("pol_phase_vv_deg");
-      target.rir_pol_phase_vv_deg = ReadDouble(rir, "pol_phase_vv_deg", 0.0);
+      // 极化散射字典（全量，开机一次载入）：行对象键 az/el/hh_amp/hh_phase/
+      // hv_amp/hv_phase/vh_amp/vh_phase/vv_amp/vv_phase；非对象行跳过。
+      if (rir.Has("polarization_dictionary") &&
+          rir["polarization_dictionary"].type() == examples::JsonValue::kArray) {
+        const examples::JsonValue& dictionary = rir["polarization_dictionary"];
+        for (std::size_t k = 0U; k < dictionary.Size(); ++k) {
+          const examples::JsonValue& row = dictionary[k];
+          if (row.type() != examples::JsonValue::kObject) {
+            continue;
+          }
+          remote_identification_radar::session::RirPolSMatrixSample sample;
+          sample.aspect_az_deg = static_cast<float>(ReadDouble(row, "az", 0.0));
+          sample.aspect_el_deg = static_cast<float>(ReadDouble(row, "el", 0.0));
+          sample.hh_amp_db = static_cast<float>(ReadDouble(row, "hh_amp", 0.0));
+          sample.hh_phase_deg = static_cast<float>(ReadDouble(row, "hh_phase", 0.0));
+          sample.hv_amp_db = static_cast<float>(ReadDouble(row, "hv_amp", 0.0));
+          sample.hv_phase_deg = static_cast<float>(ReadDouble(row, "hv_phase", 0.0));
+          sample.vh_amp_db = static_cast<float>(ReadDouble(row, "vh_amp", 0.0));
+          sample.vh_phase_deg = static_cast<float>(ReadDouble(row, "vh_phase", 0.0));
+          sample.vv_amp_db = static_cast<float>(ReadDouble(row, "vv_amp", 0.0));
+          sample.vv_phase_deg = static_cast<float>(ReadDouble(row, "vv_phase", 0.0));
+          target.rir_pol_dictionary.push_back(sample);
+        }
+      }
+      target.rir_pol_window_deg = ReadDouble(rir, "pol_window_deg", 5.0);
       if (rir["truth_model"].IsString()) {
         target.rir_truth_model = rir["truth_model"].AsString();
       }
