@@ -87,7 +87,7 @@ RirCycleResult RirRecordingSession::StepWithResult(const RirCycleInput& input) {
   RirCycleReplayRecord record;
   record.result = result;
   record.session_state = RirSessionReplayAccess::CaptureSessionState(impl_->session);
-  WriteReplayEvent(impl_->replay_writer, "cycle_output", "RirCycleReplayRecordV2",
+  WriteReplayEvent(impl_->replay_writer, "cycle_output", "RirCycleReplayRecordV3",
                    EncodeCycleReplayRecordFlatbuffer(record), input);
   return result;
 }

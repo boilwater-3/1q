@@ -31,6 +31,7 @@ Last-reviewed: 2026-09-03
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
 | ESR-OQ-4 | electronic_surveillance_radar | 扫描采样点数上限截断 | 超 131072 点截断丢弃窗口末端，是否产品认可 | open |
 | RIR-OQ-3 | remote_identification_radar | inconsistent_platform_position 疑似死码 | 头文件有、代码无产生点，是否删除 | open |
+| RIR-OQ-4 | remote_identification_radar | 极化四类判决判据缺位 | 五统计量已量测，RV/HD/LD/DB 映射判据等甲方原件；场景字典为合成占位 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
@@ -386,6 +387,21 @@ Last-reviewed: 2026-09-03
   先冻结不变量边界再写入文档。
 
 ## Remote Identification Radar 非阻塞边界
+
+### RIR-OQ-4：极化四类判决判据缺位（RV/重诱饵/轻诱饵/碎片）
+
+- **现状**：极化散射矩阵统计特征（五量×均值/标准差）已量测进特征链与验收日志
+  （2026-09-03 落地），`RirBallisticSubclass` 枚举与回放字段就位但无生产者——
+  五统计量→四类的映射判据（阈值表/特征库维度/规则）依赖甲方表格与判据文本，
+  原件未到手。新弹道场景字典为合成占位值（类间区分有、绝对数值无实测依据）。
+  [evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]
+  [evidence: examples/scenes/rir_ballistic_discrimination/rir_ballistic_discrimination.md]
+- **后果**：验收日志"目标类型"行无细分输出（恒仅粗类）；占位字典不能用于
+  定量验收。
+- **待决问题**：判据形式（甲方阈值表 / SQLite 特征库新维度 / 演示规则）与
+  占位字典替换。
+- **当前边界**：不得臆造判决阈值；细分字段恒 kUnknown。
+- **再进入条件 (Stage A)**：甲方表格原件+判据文本到手。
 
 ### RIR-OQ-3：inconsistent_platform_position 疑似死码
 

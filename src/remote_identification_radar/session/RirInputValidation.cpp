@@ -77,22 +77,15 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
                   location + ".aspect_rcs_samples", "Aspect RCS sample fields must be finite.");
       }
     }
-    for (const RirPolarizationRcsSample& sample : target.polarization_rcs_samples) {
+    for (const RirPolSMatrixSample& sample : target.polarization_samples) {
       if (!IsFinite(sample.aspect_az_deg) || !IsFinite(sample.aspect_el_deg) ||
-          !IsFinite(sample.channel_1_rcs_dbsm) || !IsFinite(sample.channel_2_rcs_dbsm)) {
+          !IsFinite(sample.hh_amp_db) || !IsFinite(sample.hh_phase_deg) ||
+          !IsFinite(sample.hv_amp_db) || !IsFinite(sample.hv_phase_deg) ||
+          !IsFinite(sample.vh_amp_db) || !IsFinite(sample.vh_phase_deg) ||
+          !IsFinite(sample.vv_amp_db) || !IsFinite(sample.vv_phase_deg)) {
         PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-                  location + ".polarization_rcs_samples",
-                  "Polarization RCS sample fields must be finite.");
-      }
-      if (sample.has_cross_pol && !IsFinite(sample.cross_rcs_dbsm)) {
-        PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-                  location + ".polarization_rcs_samples",
-                  "Cross-pol RCS must be finite when has_cross_pol is true.");
-      }
-      if (sample.has_phase_vv && !IsFinite(sample.phase_vv_rel_hh_deg)) {
-        PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-                  location + ".polarization_rcs_samples",
-                  "HH-VV phase must be finite when has_phase_vv is true.");
+                  location + ".polarization_samples",
+                  "Polarization S-matrix sample fields must be finite.");
       }
     }
     for (const RirRangeRcsScatterer& scatterer : target.range_rcs_scatterers) {

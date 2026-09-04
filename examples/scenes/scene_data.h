@@ -117,14 +117,10 @@ struct ScriptedTarget {
   // /散射器（仿集成测试配方），识别库模板匹配源。极化须显式给值才铺样
   // （0 dBsm 是合法物理值，不能用零值当"未提供"判断）。
   bool has_rir_features{false};             /**< 是否携带 RIR 特征真值 */
-  bool has_rir_polarization{false};         /**< 是否提供极化通道真值（决定铺极化样本） */
-  bool has_rir_pol_cross{false};            /**< JSON 是否显式给出交叉极化 RCS */
-  bool has_rir_pol_phase{false};            /**< JSON 是否显式给出 HH–VV 相位 */
   double rir_rcs_dbsm{0.0};                 /**< 视角 RCS 网格值（dBsm） */
-  double rir_pol_ch1_dbsm{0.0};             /**< 极化通道 1 RCS（dBsm） */
-  double rir_pol_ch2_dbsm{0.0};             /**< 极化通道 2 RCS（dBsm） */
-  double rir_pol_cross_dbsm{0.0};           /**< 交叉极化 HV=VH RCS（dBsm） */
-  double rir_pol_phase_vv_deg{0.0};         /**< VV 相对 HH 相位（deg） */
+  std::vector<remote_identification_radar::session::RirPolSMatrixSample>
+      rir_pol_dictionary{}; /**< 极化散射字典（全量，开机一次性载入；架构 B） */
+  double rir_pol_window_deg{5.0};           /**< 极化窗口跨度（deg，±窗口） */
   std::string rir_truth_model{};            /**< 真值型号名（人读 + 识别准确率统计） */
   std::vector<RirScattererScript> rir_scatterers{}; /**< 距离向散射中心（一维像真值） */
 };
