@@ -24,7 +24,7 @@ namespace tests {
 namespace {
 
 using session::RirAspectRcsSample;
-using session::RirPolarizationRcsSample;
+using session::RirPolSMatrixSample;
 using session::RirRangeRcsScatterer;
 using session::RirRecognitionFeatureDimension;
 using session::RirSceneTarget;
@@ -130,7 +130,7 @@ TEST(RirMotionFeatureExtractorTest, QualityNormalizesTracePerAxis) {
 
 TEST(RirPolarizationFeatureExtractorTest, MissingChannelInvalidatesDimension) {
   // 任一通道 RCS 缺失（样本列表为空）→ 维度无效。
-  std::vector<RirPolarizationRcsSample> samples;
+  std::vector<RirPolSMatrixSample> samples;
   const recognition::RirPolarizationObservation observation =
       recognition::RirPolarizationFeatureExtractor::Extract(samples, -30.0f, 5.0f, 20.0f,
                                                             100000.0f);
@@ -138,12 +138,12 @@ TEST(RirPolarizationFeatureExtractorTest, MissingChannelInvalidatesDimension) {
 }
 
 TEST(RirPolarizationFeatureExtractorTest, ChannelEnergyDifferenceMatchesRcsRatio) {
-  RirPolarizationRcsSample sample;
+  RirPolSMatrixSample sample;
   sample.aspect_az_deg = -30.0f;
   sample.aspect_el_deg = 5.0f;
-  sample.channel_1_rcs_dbsm = -3.0f;
-  sample.channel_2_rcs_dbsm = -6.0f;
-  std::vector<RirPolarizationRcsSample> samples = {sample};
+  sample.hh_amp_db = -3.0f;
+  sample.vv_amp_db = -6.0f;
+  std::vector<RirPolSMatrixSample> samples = {sample};
 
   const recognition::RirPolarizationObservation observation =
       recognition::RirPolarizationFeatureExtractor::Extract(samples, -30.0f, 5.0f, 20.0f,
@@ -214,12 +214,12 @@ TEST(RecognitionFeatureExtractorTest, InvalidInputsReturnZeroQualityWithoutThrow
 TEST(RirObservationBuilderTest, ConfirmedTrackWithAllFeaturesProducesFullMask) {
   RirSceneTarget target;
   target.aspect_rcs_samples.push_back({-30.0f, 5.0f, -3.0f});
-  RirPolarizationRcsSample polarization;
+  RirPolSMatrixSample polarization;
   polarization.aspect_az_deg = -30.0f;
   polarization.aspect_el_deg = 5.0f;
-  polarization.channel_1_rcs_dbsm = -3.0f;
-  polarization.channel_2_rcs_dbsm = -6.0f;
-  target.polarization_rcs_samples.push_back(polarization);
+  polarization.hh_amp_db = -3.0f;
+  polarization.vv_amp_db = -6.0f;
+  target.polarization_samples.push_back(polarization);
   target.range_rcs_scatterers.push_back({0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
 
   RirTrackState snapshot;
@@ -251,12 +251,12 @@ TEST(RirObservationBuilderTest, ConfirmedTrackWithAllFeaturesProducesFullMask) {
 TEST(RecognitionScenarioGateTest, LowSnrExcludesRcsAndPolarizationButKeepsMotion) {
   RirSceneTarget target;
   target.aspect_rcs_samples.push_back({0.0f, 20.0f, -3.0f});
-  RirPolarizationRcsSample polarization;
+  RirPolSMatrixSample polarization;
   polarization.aspect_az_deg = 0.0f;
   polarization.aspect_el_deg = 20.0f;
-  polarization.channel_1_rcs_dbsm = -3.0f;
-  polarization.channel_2_rcs_dbsm = -5.0f;
-  target.polarization_rcs_samples.push_back(polarization);
+  polarization.hh_amp_db = -3.0f;
+  polarization.vv_amp_db = -5.0f;
+  target.polarization_samples.push_back(polarization);
 
   RirTrackState snapshot;
   snapshot.status = RirTrackStatus::kConfirmed;
@@ -305,12 +305,12 @@ TEST(RecognitionScenarioGateTest, LowBandwidthExcludesRangeProfile) {
 
 TEST(RecognitionScenarioGateTest, StrongJammingExcludesPolarization) {
   RirSceneTarget target;
-  RirPolarizationRcsSample polarization;
+  RirPolSMatrixSample polarization;
   polarization.aspect_az_deg = 0.0f;
   polarization.aspect_el_deg = 20.0f;
-  polarization.channel_1_rcs_dbsm = -3.0f;
-  polarization.channel_2_rcs_dbsm = -5.0f;
-  target.polarization_rcs_samples.push_back(polarization);
+  polarization.hh_amp_db = -3.0f;
+  polarization.vv_amp_db = -5.0f;
+  target.polarization_samples.push_back(polarization);
   RirTrackState snapshot;
   snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 100.0f;

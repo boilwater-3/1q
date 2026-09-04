@@ -118,12 +118,12 @@ RirSceneTarget MakeFeaturedTarget() {
     }
   }
   for (float el = 15.0f; el <= 30.0f; el += 5.0f) {
-    session::RirPolarizationRcsSample polarization;
+    session::RirPolSMatrixSample polarization;
     polarization.aspect_az_deg = 0.0f;
     polarization.aspect_el_deg = el;
-    polarization.channel_1_rcs_dbsm = -3.0f;
-    polarization.channel_2_rcs_dbsm = -6.0f;
-    target.polarization_rcs_samples.push_back(polarization);
+    polarization.hh_amp_db = -3.0f;
+    polarization.vv_amp_db = -6.0f;
+    target.polarization_samples.push_back(polarization);
   }
   for (float offset_m = 0.0f; offset_m <= 12.0f; offset_m += 6.0f) {
     session::RirRangeRcsScatterer scatterer;

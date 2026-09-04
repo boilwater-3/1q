@@ -65,7 +65,7 @@ RirCycleInput MakeCycleInput(std::uint32_t cycle) {
   target.velocity_x = 100.0f;
   target.rcs = 5.0f;
   target.aspect_rcs_samples.push_back(RirAspectRcsSample{});
-  target.polarization_rcs_samples.push_back(RirPolarizationRcsSample{});
+  target.polarization_samples.push_back(RirPolSMatrixSample{});
   target.range_rcs_scatterers.push_back(RirRangeRcsScatterer{});
   input.scene_targets.push_back(target);
   return input;
@@ -187,8 +187,8 @@ TEST(RirReplaySessionTest, ConfigAndInputPayloadsRoundtripByteExact) {
 
   RirCycleInput input = MakeCycleInput(3U);
   input.scene_targets[0].target_swerling_type = RirSwerlingType::kSwerling3;
-  input.scene_targets[0].polarization_rcs_samples[0].has_cross_pol = true;
-  input.scene_targets[0].polarization_rcs_samples[0].cross_rcs_dbsm = -12.0f;
+  input.scene_targets[0].polarization_samples[0].hv_amp_db = -12.0f;
+  input.scene_targets[0].polarization_samples[0].vv_phase_deg = 45.0f;
   input.scene_targets[0].range_rcs_scatterers[0].range_offset_m = 1.5f;
 
   const std::string encoded_input = EncodeRirCycleInput(input);
