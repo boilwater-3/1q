@@ -204,7 +204,7 @@ flatbuffers::Offset<fb::RirRecognitionResultV1> EncodeRecognitionResult(
       value.feature_scores.range_profile_similarity, value.feature_scores.range_profile_quality,
       value.valid_feature_mask, value.observation_count, value.accumulation_sec,
       builder->CreateString(value.database_version), value.source_cycle_index,
-      value.source_batch_id);
+      value.source_batch_id, static_cast<int>(value.ballistic_subclass));
 }
 
 bool DecodeRecognitionResult(const fb::RirRecognitionResultV1* value, RirRecognitionResult* out) {
@@ -219,8 +219,14 @@ bool DecodeRecognitionResult(const fb::RirRecognitionResultV1* value, RirRecogni
       category_raw > static_cast<int>(RirRecognitionCategory::kMissile)) {
     return false;
   }
+  const int subclass_raw = value->ballistic_subclass();
+  if (subclass_raw < static_cast<int>(RirBallisticSubclass::kUnknown) ||
+      subclass_raw > static_cast<int>(RirBallisticSubclass::kDebris)) {
+    return false;
+  }
   out->state = static_cast<RirRecognitionState>(state_raw);
   out->target_category = static_cast<RirRecognitionCategory>(category_raw);
+  out->ballistic_subclass = static_cast<RirBallisticSubclass>(subclass_raw);
   if (value->target_model() != nullptr) {
     out->target_model = value->target_model()->str();
   }
@@ -272,9 +278,22 @@ flatbuffers::Offset<fb::RirFeatureMeasurementRecordV1> EncodeFeatureMeasurement(
           value.features.range_profile.peak_count,
           value.features.range_profile.peak_energy_concentration,
           value.features.range_profile.resolution_m, value.features.range_profile.quality);
+  const flatbuffers::Offset<fb::RirPolarizationStatsObservationV1> polarization_stats =
+      fb::CreateRirPolarizationStatsObservationV1(
+          *builder, value.features.polarization_stats.valid,
+          value.features.polarization_stats.determinant_mean,
+          value.features.polarization_stats.determinant_std,
+          value.features.polarization_stats.span_mean, value.features.polarization_stats.span_std,
+          value.features.polarization_stats.depolarization_mean,
+          value.features.polarization_stats.depolarization_std,
+          value.features.polarization_stats.psi_mean_deg,
+          value.features.polarization_stats.psi_std_deg,
+          value.features.polarization_stats.tau_mean_deg,
+          value.features.polarization_stats.tau_std_deg);
   return fb::CreateRirFeatureMeasurementRecordV1(
       *builder, value.association_key, rcs, motion, polarization, range_profile,
-      value.valid_feature_mask, value.look_az_deg, value.look_el_deg, value.range_m,
+      polarization_stats, value.valid_feature_mask, value.look_az_deg, value.look_el_deg,
+      value.range_m,
       value.snr_db, value.dwell_sec, value.bandwidth_hz, value.has_platform_position,
       value.platform_position.x_m, value.platform_position.y_m, value.platform_position.z_m,
       value.cycle_index, value.batch_id);
@@ -313,6 +332,23 @@ void DecodeFeatureMeasurement(const fb::RirFeatureMeasurementRecordV1* value,
         value->polarization()->relative_difference_db();
     out->features.polarization.energy_sum_db = value->polarization()->energy_sum_db();
     out->features.polarization.quality = value->polarization()->quality();
+  }
+  if (value->polarization_stats() != nullptr) {
+    out->features.polarization_stats.valid = value->polarization_stats()->valid();
+    out->features.polarization_stats.determinant_mean =
+        value->polarization_stats()->determinant_mean();
+    out->features.polarization_stats.determinant_std =
+        value->polarization_stats()->determinant_std();
+    out->features.polarization_stats.span_mean = value->polarization_stats()->span_mean();
+    out->features.polarization_stats.span_std = value->polarization_stats()->span_std();
+    out->features.polarization_stats.depolarization_mean =
+        value->polarization_stats()->depolarization_mean();
+    out->features.polarization_stats.depolarization_std =
+        value->polarization_stats()->depolarization_std();
+    out->features.polarization_stats.psi_mean_deg = value->polarization_stats()->psi_mean_deg();
+    out->features.polarization_stats.psi_std_deg = value->polarization_stats()->psi_std_deg();
+    out->features.polarization_stats.tau_mean_deg = value->polarization_stats()->tau_mean_deg();
+    out->features.polarization_stats.tau_std_deg = value->polarization_stats()->tau_std_deg();
   }
   if (value->range_profile() != nullptr) {
     out->features.range_profile.valid = value->range_profile()->valid();
@@ -421,14 +457,14 @@ flatbuffers::Offset<fb::RirSceneTarget> EncodeSceneTarget(
     aspect_samples.push_back(fb::CreateRirAspectRcsSample(
         *builder, sample.aspect_az_deg, sample.aspect_el_deg, sample.rcs_dbsm));
   }
-  std::vector<flatbuffers::Offset<fb::RirPolarizationRcsSample>> polarization_samples;
-  polarization_samples.reserve(value.polarization_rcs_samples.size());
-  for (std::size_t i = 0U; i < value.polarization_rcs_samples.size(); ++i) {
-    const RirPolarizationRcsSample& sample = value.polarization_rcs_samples[i];
-    polarization_samples.push_back(fb::CreateRirPolarizationRcsSample(
-        *builder, sample.aspect_az_deg, sample.aspect_el_deg, sample.channel_1_rcs_dbsm,
-        sample.channel_2_rcs_dbsm, sample.cross_rcs_dbsm, sample.phase_vv_rel_hh_deg,
-        sample.has_cross_pol, sample.has_phase_vv));
+  std::vector<flatbuffers::Offset<fb::RirPolSMatrixSample>> polarization_samples;
+  polarization_samples.reserve(value.polarization_samples.size());
+  for (std::size_t i = 0U; i < value.polarization_samples.size(); ++i) {
+    const RirPolSMatrixSample& sample = value.polarization_samples[i];
+    polarization_samples.push_back(fb::CreateRirPolSMatrixSample(
+        *builder, sample.aspect_az_deg, sample.aspect_el_deg, sample.hh_amp_db,
+        sample.hh_phase_deg, sample.hv_amp_db, sample.hv_phase_deg, sample.vh_amp_db,
+        sample.vh_phase_deg, sample.vv_amp_db, sample.vv_phase_deg));
   }
   std::vector<flatbuffers::Offset<fb::RirRangeRcsScatterer>> scatterers;
   scatterers.reserve(value.range_rcs_scatterers.size());
@@ -479,22 +515,24 @@ bool DecodeSceneTarget(const fb::RirSceneTarget* value, RirSceneTarget* out) {
       out->aspect_rcs_samples.push_back(decoded);
     }
   }
-  if (value->polarization_rcs_samples() != nullptr) {
-    out->polarization_rcs_samples.reserve(value->polarization_rcs_samples()->size());
-    for (const fb::RirPolarizationRcsSample* sample : *value->polarization_rcs_samples()) {
+  if (value->polarization_samples() != nullptr) {
+    out->polarization_samples.reserve(value->polarization_samples()->size());
+    for (const fb::RirPolSMatrixSample* sample : *value->polarization_samples()) {
       if (sample == nullptr) {
         continue;
       }
-      RirPolarizationRcsSample decoded;
+      RirPolSMatrixSample decoded;
       decoded.aspect_az_deg = sample->aspect_az_deg();
       decoded.aspect_el_deg = sample->aspect_el_deg();
-      decoded.channel_1_rcs_dbsm = sample->channel_1_rcs_dbsm();
-      decoded.channel_2_rcs_dbsm = sample->channel_2_rcs_dbsm();
-      decoded.cross_rcs_dbsm = sample->cross_rcs_dbsm();
-      decoded.phase_vv_rel_hh_deg = sample->phase_vv_rel_hh_deg();
-      decoded.has_cross_pol = sample->has_cross_pol();
-      decoded.has_phase_vv = sample->has_phase_vv();
-      out->polarization_rcs_samples.push_back(decoded);
+      decoded.hh_amp_db = sample->hh_amp_db();
+      decoded.hh_phase_deg = sample->hh_phase_deg();
+      decoded.hv_amp_db = sample->hv_amp_db();
+      decoded.hv_phase_deg = sample->hv_phase_deg();
+      decoded.vh_amp_db = sample->vh_amp_db();
+      decoded.vh_phase_deg = sample->vh_phase_deg();
+      decoded.vv_amp_db = sample->vv_amp_db();
+      decoded.vv_phase_deg = sample->vv_phase_deg();
+      out->polarization_samples.push_back(decoded);
     }
   }
   if (value->range_rcs_scatterers() != nullptr) {
@@ -848,9 +886,9 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
           builder, builder.CreateString(record.session_state.active_database_version),
           record.session_state.detection_random_seed);
 
-  const flatbuffers::Offset<fb::RirCycleReplayRecordV2> root =
-      fb::CreateRirCycleReplayRecordV2(builder, result, session_state);
-  builder.Finish(root, fb::RirCycleReplayRecordV2Identifier());
+  const flatbuffers::Offset<fb::RirCycleReplayRecordV3> root =
+      fb::CreateRirCycleReplayRecordV3(builder, result, session_state);
+  builder.Finish(root, fb::RirCycleReplayRecordV3Identifier());
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
@@ -863,20 +901,22 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     return false;
   }
   const std::uint8_t* payload = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
-  if (!flatbuffers::BufferHasIdentifier(payload, fb::RirCycleReplayRecordV2Identifier())) {
+  if (!flatbuffers::BufferHasIdentifier(payload, fb::RirCycleReplayRecordV3Identifier())) {
     if (error != nullptr) {
-      *error = "rir_replay v1 record is not supported: phase 2-S uses the destructive v2 schema";
+      *error =
+          "rir_replay v1/v2 record is not supported: polarization discrimination uses the "
+          "destructive v3 schema (RIR3)";
     }
     return false;
   }
   flatbuffers::Verifier verifier(payload, payload_bytes.size());
-  if (!fb::VerifyRirCycleReplayRecordV2Buffer(verifier)) {
+  if (!fb::VerifyRirCycleReplayRecordV3Buffer(verifier)) {
     if (error != nullptr) {
       *error = "flatbuffer verification failed";
     }
     return false;
   }
-  const fb::RirCycleReplayRecordV2* root = fb::GetRirCycleReplayRecordV2(payload_bytes.data());
+  const fb::RirCycleReplayRecordV3* root = fb::GetRirCycleReplayRecordV3(payload_bytes.data());
   if (root == nullptr) {
     if (error != nullptr) {
       *error = "root table missing";

@@ -10,7 +10,12 @@
 //   实际 RIR 发射；旧记录缺字段时解码为空帧）。
 // 指定任务回退成因加性扩展（2026-08-21）：designation_revert_reason 新增
 //   kOutsideSteerableVolume=3（int 字段；旧记录不受影响）。
-// V2 为唯一支持 root_type；V1 保留仅用于旧记录识别与显式拒绝。
+// V2 为历史版本；V1 保留仅用于旧记录识别与显式拒绝。
+// 破坏性版本 V3（2026-09-03，极化四类判决）：极化样本从 dBsm+has_* 双通道口径
+//   替换为四路复数 RirPolSMatrixSample（HH/HV/VH/VV 幅度+相位，窗口语义）；
+//   RirSceneTarget 向量字段改型、识别结果表加 ballistic_subclass。嵌套表字段
+//   布局变更导致旧 RIR2 记录不可安全解码——root 升 V3、"RIR3" 标识，旧录制
+//   显式拒绝（沿 V1→V2 先例）。
 
 namespace oneq.replay.remote_identification_radar.fb;
 
@@ -84,6 +89,7 @@ table RirRecognitionResultV1 {
   database_version:string;
   source_cycle_index:uint;
   source_batch_id:ulong;
+  ballistic_subclass:int;  // RirBallisticSubclass（0-4）；判据未冻结恒 0
 }
 
 table RirTrackRecognitionOutputV1 {
@@ -131,12 +137,22 @@ table RirRangeProfileFeatureObservationV1 {
   quality:float;
 }
 
+table RirPolarizationStatsObservationV1 {
+  valid:bool;
+  determinant_mean:float; determinant_std:float;
+  span_mean:float; span_std:float;
+  depolarization_mean:float; depolarization_std:float;
+  psi_mean_deg:float; psi_std_deg:float;
+  tau_mean_deg:float; tau_std_deg:float;
+}
+
 table RirFeatureMeasurementRecordV1 {
   association_key:ulong;
   rcs:RirRcsFeatureObservationV1;
   motion:RirMotionFeatureObservationV1;
   polarization:RirPolarizationFeatureObservationV1;
   range_profile:RirRangeProfileFeatureObservationV1;
+  polarization_stats:RirPolarizationStatsObservationV1;  // 加性（RIR3，2026-09-03）
   valid_feature_mask:ubyte;
   look_az_deg:float;
   look_el_deg:float;
@@ -263,8 +279,13 @@ table RirCycleReplayRecordV2 {
   session_state:RirSessionReplayStateV2;
 }
 
-root_type RirCycleReplayRecordV2;
-file_identifier "RIR2";
+table RirCycleReplayRecordV3 {
+  result:RirCycleResultV2;
+  session_state:RirSessionReplayStateV2;
+}
+
+root_type RirCycleReplayRecordV3;
+file_identifier "RIR3";
 
 // ===== 周期输入载荷（cycle_input 事件；2026-08-23）=====
 // 与 include/1q/remote_identification_radar/session/RirSceneTypes.h 及
@@ -278,15 +299,17 @@ table RirAspectRcsSample {
   rcs_dbsm:float;
 }
 
-table RirPolarizationRcsSample {
+table RirPolSMatrixSample {
   aspect_az_deg:float;
   aspect_el_deg:float;
-  channel_1_rcs_dbsm:float;
-  channel_2_rcs_dbsm:float;
-  cross_rcs_dbsm:float;
-  phase_vv_rel_hh_deg:float;
-  has_cross_pol:bool;
-  has_phase_vv:bool;
+  hh_amp_db:float;
+  hh_phase_deg:float;
+  hv_amp_db:float;
+  hv_phase_deg:float;
+  vh_amp_db:float;
+  vh_phase_deg:float;
+  vv_amp_db:float;
+  vv_phase_deg:float;
 }
 
 table RirRangeRcsScatterer {
@@ -310,7 +333,7 @@ table RirSceneTarget {
   rcs:float;
   target_swerling_type:ubyte;  // RirSwerlingType（0-4）
   aspect_rcs_samples:[RirAspectRcsSample];
-  polarization_rcs_samples:[RirPolarizationRcsSample];
+  polarization_samples:[RirPolSMatrixSample];
   range_rcs_scatterers:[RirRangeRcsScatterer];
 }
 
