@@ -40,6 +40,19 @@ enum class ONEQ_API RirRecognitionCategory : std::uint8_t {
 };
 
 /**
+ * @brief RirBallisticSubclass 弹道目标细分类型（与 RirRecognitionCategory 平行，
+ *        不改七粗类枚举）。
+ * @note 判决判据未冻结（2026-09-03 契约：等甲方原件），当前无生产者、恒 kUnknown。
+ */
+enum class ONEQ_API RirBallisticSubclass : std::uint8_t {
+  kUnknown = 0,       /**< 未判决。 */
+  kReentryVehicle = 1, /**< 弹头（再入飞行器）。 */
+  kHeavyDecoy = 2,    /**< 重诱饵。 */
+  kLightDecoy = 3,    /**< 轻诱饵。 */
+  kDebris = 4         /**< 碎片。 */
+};
+
+/**
  * @brief RirRecognitionFeatureDimension 特征维度位掩码。
  */
 enum class ONEQ_API RirRecognitionFeatureDimension : std::uint8_t {
@@ -70,6 +83,7 @@ struct ONEQ_API RirRecognitionFeatureScores {
 struct ONEQ_API RirRecognitionResult {
   RirRecognitionState state{RirRecognitionState::kDisabled};
   RirRecognitionCategory target_category{RirRecognitionCategory::kUnknown};
+  RirBallisticSubclass ballistic_subclass{RirBallisticSubclass::kUnknown}; /**< 弹道细分类型（平行字段，判据未冻结恒 kUnknown）。 */
   std::string target_model{};  /**< 最可能型号；未确认时为空字符串。 */
   float confidence{0.0f};      /**< 第一候选归一化综合置信度，[0, 1]。 */
   float best_score{0.0f};      /**< 第一候选得分，[0, 1]。 */

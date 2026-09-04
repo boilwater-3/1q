@@ -118,6 +118,25 @@ session::RirFeatureObservations ToPublicFeatureObservations(const recognition::R
   features.polarization.relative_difference_db = set.polarization.relative_difference_db;
   features.polarization.energy_sum_db = set.polarization.energy_sum_db;
   features.polarization.quality = set.polarization.quality;
+  features.polarization_stats.valid = set.polarization_stats.valid;
+  features.polarization_stats.determinant_mean =
+      static_cast<float>(set.polarization_stats.determinant.mean);
+  features.polarization_stats.determinant_std =
+      static_cast<float>(set.polarization_stats.determinant.std);
+  features.polarization_stats.span_mean = static_cast<float>(set.polarization_stats.span.mean);
+  features.polarization_stats.span_std = static_cast<float>(set.polarization_stats.span.std);
+  features.polarization_stats.depolarization_mean =
+      static_cast<float>(set.polarization_stats.depolarization.mean);
+  features.polarization_stats.depolarization_std =
+      static_cast<float>(set.polarization_stats.depolarization.std);
+  features.polarization_stats.psi_mean_deg =
+      static_cast<float>(set.polarization_stats.psi_deg.mean);
+  features.polarization_stats.psi_std_deg =
+      static_cast<float>(set.polarization_stats.psi_deg.std);
+  features.polarization_stats.tau_mean_deg =
+      static_cast<float>(set.polarization_stats.tau_deg.mean);
+  features.polarization_stats.tau_std_deg =
+      static_cast<float>(set.polarization_stats.tau_deg.std);
   features.range_profile.valid = set.range_profile.valid;
   features.range_profile.length_m = set.range_profile.length_m;
   features.range_profile.peak_count = set.range_profile.peak_count;
@@ -1295,13 +1314,6 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           break;
         }
       }
-      const std::vector<session::RirPolarizationRcsSample>* polarization_samples = nullptr;
-      for (const session::RirSceneTarget& target : input.scene_targets) {
-        if (target.external_target_id == track.external_target_id) {
-          polarization_samples = &target.polarization_rcs_samples;
-          break;
-        }
-      }
       std::vector<float> imm_weights;
       if (lifecycle_ != nullptr) {
         const tracking::RirImmFilter* imm = lifecycle_->FindImmFilter(track.association_key);
@@ -1348,7 +1360,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         truth_context.scatterers = &truth_target->range_rcs_scatterers;
       }
       WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
-                         polarization_samples, latest_summary_.has_ground_truth,
+                         latest_summary_.has_ground_truth,
                          static_cast<double>(latest_summary_.category_accuracy), &imm_weights,
                          input.platform_position,
                          truth_target != nullptr ? &truth_context : nullptr);

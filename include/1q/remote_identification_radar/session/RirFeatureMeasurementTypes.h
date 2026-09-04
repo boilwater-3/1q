@@ -58,6 +58,28 @@ struct ONEQ_API RirPolarizationFeatureObservation {
 };
 
 /**
+ * @brief RirPolarizationStatsFeatureObservation 极化散射矩阵统计特征量测
+ *        （五量×(均值, 标准差)；统计总体＝当前视角附近的窗口行）。
+ * @note 方向角 psi 周期 180°，采用圆统计：psi_mean_deg 为均值角（deg）、
+ *       psi_std_deg 为角度散布（deg）——缠绕处（+89° 与 −89° 物理同向）不会
+ *       产生算术平均式的假 0°。其余四量为算术均值与样本标准差（n=1 时 std=0）。
+ *       细分类型（弹头/重诱饵/轻诱饵/碎片）判据未冻结，当前仅量测、不判决。
+ */
+struct ONEQ_API RirPolarizationStatsFeatureObservation {
+  bool valid{false};                    /**< 维度可用性（窗口存在有效行）。 */
+  float determinant_mean{0.0f};         /**< |det S| 均值。 */
+  float determinant_std{0.0f};          /**< |det S| 样本标准差。 */
+  float span_mean{0.0f};                /**< 总功率（Span）均值。 */
+  float span_std{0.0f};                 /**< Span 样本标准差。 */
+  float depolarization_mean{0.0f};      /**< 去极化系数均值。 */
+  float depolarization_std{0.0f};       /**< 去极化系数样本标准差。 */
+  float psi_mean_deg{0.0f};             /**< 本征极化方向角均值（圆统计均值角，deg）。 */
+  float psi_std_deg{0.0f};              /**< 本征极化方向角角度散布（圆统计口径，deg）。 */
+  float tau_mean_deg{0.0f};             /**< 本征极化椭圆率均值（算术，deg）。 */
+  float tau_std_deg{0.0f};              /**< 本征极化椭圆率样本标准差（deg）。 */
+};
+
+/**
  * @brief RirRangeProfileFeatureObservation 宽带一维距离像特征量测。
  */
 struct ONEQ_API RirRangeProfileFeatureObservation {
@@ -75,7 +97,8 @@ struct ONEQ_API RirRangeProfileFeatureObservation {
 struct ONEQ_API RirFeatureObservations {
   RirRcsFeatureObservation rcs{};                 /**< RCS 维。 */
   RirMotionFeatureObservation motion{};           /**< 运动维。 */
-  RirPolarizationFeatureObservation polarization{}; /**< 极化维。 */
+  RirPolarizationFeatureObservation polarization{}; /**< 极化维（双通道能量特征）。 */
+  RirPolarizationStatsFeatureObservation polarization_stats{}; /**< 极化散射矩阵统计维。 */
   RirRangeProfileFeatureObservation range_profile{}; /**< 距离像维。 */
 };
 

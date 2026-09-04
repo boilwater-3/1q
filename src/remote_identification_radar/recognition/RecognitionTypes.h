@@ -13,6 +13,7 @@
 #include <cstdint>
 
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
+#include "remote_identification_radar/recognition/PolarizationStatsExtractor.h"
 
 namespace remote_identification_radar {
 namespace recognition {
@@ -89,6 +90,7 @@ struct RirFeatureSet {
   RirRcsObservation rcs{};
   RirMotionObservation motion{};
   RirPolarizationObservation polarization{};
+  RirPolarizationStatsObservation polarization_stats{}; /**< 极化散射矩阵统计维（判决判据未冻结，不进掩码）。 */
   RirRangeProfileObservation range_profile{};
   /** @brief 本周期有效特征维度掩码（RirRecognitionFeatureDimension 按位或）。 */
   std::uint8_t valid_feature_mask{0U};

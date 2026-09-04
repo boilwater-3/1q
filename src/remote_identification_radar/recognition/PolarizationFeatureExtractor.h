@@ -25,7 +25,7 @@ class RirPolarizationFeatureExtractor {
  public:
   /**
    * @brief 提取极化特征观测。
-   * @param[in] samples 双通道极化 RCS 样本列表。
+   * @param[in] samples 四路极化散射窗口样本（双通道消费仅取 HH/VV 幅度）。
    * @param[in] look_az_deg 视线方位角（目标参考系，deg）。
    * @param[in] look_el_deg 视线俯仰角（目标参考系，deg）。
    * @param[in] snr_db 周期信噪比（dB）。
@@ -33,7 +33,7 @@ class RirPolarizationFeatureExtractor {
    * @return 极化观测；样本为空或视线角超出覆盖时 valid=false。
    */
   static RirPolarizationObservation Extract(
-      const std::vector<session::RirPolarizationRcsSample>& samples, float look_az_deg,
+      const std::vector<session::RirPolSMatrixSample>& samples, float look_az_deg,
       float look_el_deg, float snr_db, float range_m);
 };
 
