@@ -258,9 +258,15 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 物理口径**不逐项对账**（阶段 2-S 后本模块已有探测链，F1/F2 仍只服务于识别
 维度有效性与质量）：
 
-1. **F1 双通道极化**：场景目标 `polarization_rcs_samples`（dBsm）经同一雷达方程
-   与 SNR 噪声底派生；通道定义（H/V）由数据库固定（meta `polarization_channels`）。
-   可选 `cross_rcs_dbsm` / `phase_vv_rel_hh_deg` 仅验收旁路消费（须 `has_*`），不进提取器。
+1. **F1 极化散射**（2026-09-03 四类判决重构）：场景目标 `polarization_samples`
+   携带**四路复数窗口行**（`RirPolSMatrixSample`：HH/HV/VH/VV 幅度 dBsm+相位 deg，
+   当前视线角 ±5° 裁剪；全量字典由场景层开机一次性载入，架构 B——类型手册归库、
+   个体字典归场景）。识别链两路消费：双通道能量特征（HH/VV 幅度，经同一雷达方程
+   与 SNR 噪声底派生，通道定义由数据库 meta `polarization_channels` 固定）与
+   **五量统计特征**（|det S|/Span/去极化/Graves ψτ ×(均值, 标准差)；ψ 为圆统计，
+   周期 180°）。细分类型（弹头/重诱饵/轻诱饵/碎片）判据未冻结，恒 kUnknown 不判决。
+   - **证据**：[evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]::RirPolarizationStatsExtractor
+   - **证据**：[evidence: tests/unit/remote_identification_radar/rir_polarization_stats_test.cpp]::RirPolarizationStatsTest
 2. **F2 距离像相干叠加**：仅消费场景侧 `range_rcs_scatterers` 真值列表；散射中心级
    峰值判定为效能级简化（粗距离单元下不合并峰标识，仅投影能量）。
 

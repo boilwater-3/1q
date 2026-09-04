@@ -87,3 +87,15 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    守恒口径登记为开放议题 COMMON-OQ-12。
    - **证据**：[evidence: src/common/electromagnetics/RfLinkBudget.cpp]::TryPolarizationLoss
    - **证据**：[evidence: docs/common/open_questions.md]（COMMON-OQ-12）
+
+4、**旧 dBsm 极化输入与新四路复数结构并存**（2026-09-03 否决）：Stage A 建议
+   新旧并存保旧验收口径；用户裁定**拆旧**——旧 `RirPolarizationRcsSample`
+   （3 功率+1 相位+has_* 开关）、旧回放样本表、旧场景键一并移除，回放按
+   V1→V2 先例升 RIR3 显式拒绝旧录制。
+   - **证据**：[evidence: include/1q/remote_identification_radar/session/RirSceneTypes.h]::RirPolSMatrixSample
+   - **证据**：[evidence: schemas/replay/rir_replay.fbs]（root_type RirCycleReplayRecordV3 / "RIR3"）
+5、**方向角 ψ 算术平均**（2026-09-03 否决）：ψ 周期 180°，+89° 与 −89° 物理同向，
+   算术平均产生假 0°——冻结为圆统计（倍角向量平均，均值角+角度散布）；椭圆率 τ
+   无缠绕（±45° 为两个不同物理态），维持算术平均。
+   - **证据**：[evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]::CircularMeanStdDeg
+   - **证据**：[evidence: tests/unit/remote_identification_radar/rir_polarization_stats_test.cpp]::RirPolarizationStatsTest.CircularStatsWraparoundGoldenValues

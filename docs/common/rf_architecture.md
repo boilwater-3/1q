@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-09-03
+Last-reviewed: 2026-09-04
 Authority: AR/ESR/ECM/RIR 公共 RF 工程架构
 Answers: 公共 RF 事实域如何设计、发射事实四级 provenance、单周期数据交换时序、接收机四层影响分层
 ---
@@ -52,6 +52,14 @@ co-site isolation 是"发射 equipment → 接收 equipment"的有向硬件路�
 3. 任一侧非极化固定 3.0103 dB，该公理优先于全极化规则（全极化对非极化同为 3.0103 dB）。
 4. 模块放行范围：仅 RIR 的 `scene_polarization` 允许填全极化（一个旋钮填收发两侧，全极化下自配对
    full/full＝0 dB）；AR/ESR/ECM 冻结不放行。
+
+识别雷达的个体极化散射字典走**架构 B**（2026-09-03 冻结）：全量字典（四路复数
+`RirPolSMatrixSample`，按视角逐行）由**场景层开机一次性载入**，每周期只把当前
+视线角 ±5° 窗口行放进 `RirSceneTarget::polarization_samples`——大表零重复进库，
+库输入契约形状不变；类型手册（SQLite 特征库）仍为库内一次性载入。**类型手册归库、
+个体字典归场景**。回放随 RIR3 升版显式拒绝旧录制。
+- **证据**：[evidence: examples/scenes/scene_script.cpp]::MakeRirSceneTargets（窗口裁剪，视线角与库内 ComputeLookAngles 同口径）
+- **证据**：[evidence: schemas/replay/rir_replay.fbs]（root_type RirCycleReplayRecordV3）
 - **证据**：[evidence: tests/unit/common/common_rf_link_budget_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
 - **证据**：[evidence: tests/unit/common/common_rf_scene_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
 - **证据**：[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]::FullPolarizationSessionConfigRoundtripsByteExact

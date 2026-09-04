@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: final
 Date: 2026-09-03
 Review-Baseline: `evidence/rir-polarization-discrimination` @ `8f072ffe`
 Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -134,14 +134,35 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 对照强制回写清单勾项，全部完成才允许拆脚手架（见 SKILL.md 收尾规则）：
-1、实现范围：改动文件与接口。
-2、验证命令与结果：命令: pass/fail（含转正的探针测试）。
+1、实现范围：
+1、公共头四处：RirPolSMatrixSample 拆旧立新、统计特征块、细分枚举与平行字段、调试视图镜像。
+2、recognition：PolarizationStatsExtractor（五量统计+ψ圆统计）、特征集/观测器接线、L2 输入适配。
+3、runtime：验收第 46 项双值行、控制器特征拷贝、删验收旁路两文件。
+4、回放：RIR3 升版+极化表替换+细分字段+统计块（修订 4 收口）+事件标签 V3。
+5、场景：字典 JSON 载入+窗口裁剪；新弹道场景 rir_ballistic_discrimination（四目标合成占位字典）。
+6、测试：黄金值新测+六文件迁移+回放往返断言。
+
+2、验证命令与结果（VisualStudio.15.0-amd64 Release，2026-09-04）：
+1、`cmake --build ... --config Release --parallel 8`: pass（零错误）。
+2、`ctest -C Release --parallel 4`: pass——全量 63/63（含 docs_structure_guard）。
+3、场景全量试跑 `rir_ballistic_discrimination.exe`: pass——SMOKE 过门（确认周期 736≥600），五量双值行出现，类间序：去极化 0.0003<0.0049<0.0413<0.1998、碎片 ψ 散布 2.2°。
+4、completeness-review Lane 1（major 门禁）：0 高 / 2 中 / 4 低——中级两条（回放统计块缺席、事件版本标签滞留）已随修订 4 收口并复验。
+5、过程事故与恢复：evidence 分支误提交混入暂存的代码删除后 `git reset --hard` 误伤工作区已跟踪修改——全部补丁凭上下文重放恢复，恢复后全量构建+63/63+场景全量复验通过。
+
 3、权威回写去向：
-   1、正向边界：docs/<module>/design.md（boundaries/data-flow/algorithms 按归属选）。
-   2、否决记录：docs/<module>/design.md 的"架构裁定与否决记录"专节（体裁见 docs-governance-standard）。
-   3、开放议题：docs/common/open_questions.md 登记（编号）。
-   4、证据锁：新增/修订规则后附 - **证据**：[evidence: 路径]。
-4、残留风险。
-5、后续冻结项。
--->
+1、正向边界：docs/remote_identification_radar/boundaries.md（F1 极化散射段重写：四路复数窗口语义+两路消费+判决占位）；docs/common/rf_architecture.md（个体字典架构 B 段+类型手册归库）。
+2、否决记录：docs/remote_identification_radar/design.md 专节追加第 4/5 条（并存方案被否改拆旧；ψ 算术平均被否改圆统计）。
+3、开放议题：docs/common/open_questions.md 登记 RIR-OQ-4（判决判据缺位+占位字典替换）。
+4、证据锁：[evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]::CircularMeanStdDeg、[evidence: tests/unit/remote_identification_radar/rir_polarization_stats_test.cpp]::RirPolarizationStatsTest、[evidence: schemas/replay/rir_replay.fbs]（RIR3）。
+
+4、残留风险：
+1、判决判据缺位：细分恒 kUnknown（RIR-OQ-4 跟踪），甲方表格与判据文本未到手。
+2、场景字典为合成占位值，绝对数值无实测依据；类间区分度为设计值。
+3、场景窗口裁剪方位差无 ±180° 缠绕处理（全角度字典下无影响，通用性备注）。
+4、本机无 clang-format，格式化检查未运行（按文件既有风格手工对齐）。
+5、低级备注：Graves 对角捷径分支（|c|²≤1e−36）无测试触发。
+
+5、后续冻结项：
+1、判决判据（甲方阈值表/特征库维度/规则三选一）→ 转正后细分字段接入判决。
+2、甲方表格原件→占位字典替换（含格式转换）。
+3、验收行格式与甲方文本逐字对齐（方向先行：双值+真判决格式）。
