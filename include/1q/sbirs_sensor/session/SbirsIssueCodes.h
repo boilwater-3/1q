@@ -135,8 +135,9 @@ constexpr char kInvalidPointingDisturbanceCorrelation[] =
 constexpr char kInvalidPointingDisturbanceVibrationFrequency[] =
     "sbirs.validation.invalid_pointing_disturbance_vibration_frequency";
 
-/** @brief 调度器最大并发 NFOV 锁定数非法（须 >= 1）。 */
-constexpr char kInvalidSchedulerNfovLocks[] = "sbirs.validation.invalid_scheduler_nfov_locks";
+// 2026-09-02 删除 kInvalidSchedulerNfovLocks（sbirs.validation.invalid_scheduler_nfov_locks，
+// 原义"调度器最大并发 NFOV 锁定数非法（须 >= 1）"）：随 max_concurrent_nfov_locks 字段
+// 删除（单镜筒化），该码不再有产生路径。
 
 /** @brief 跟踪模式非法。 */
 constexpr char kInvalidTrackingMode[] = "sbirs.validation.invalid_tracking_mode";

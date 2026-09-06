@@ -25,7 +25,7 @@ constexpr float kMinimumObservationSnrDb = 6.0f;
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /** @brief 视线角最近邻插值；返回两通道 RCS 与命中标志。 */
-bool InterpolateChannels(const std::vector<session::RirPolarizationRcsSample>& samples,
+bool InterpolateChannels(const std::vector<session::RirPolSMatrixSample>& samples,
                          float az_deg, float el_deg, float* channel_1, float* channel_2) {
   if (samples.empty()) {
     return false;
@@ -38,8 +38,8 @@ bool InterpolateChannels(const std::vector<session::RirPolarizationRcsSample>& s
     const float distance = std::sqrt(d_az * d_az + d_el * d_el);
     if (distance < best_d) {
       best_d = distance;
-      *channel_1 = samples[i].channel_1_rcs_dbsm;
-      *channel_2 = samples[i].channel_2_rcs_dbsm;
+      *channel_1 = samples[i].hh_amp_db;
+      *channel_2 = samples[i].vv_amp_db;
       found = true;
     }
   }
@@ -49,7 +49,7 @@ bool InterpolateChannels(const std::vector<session::RirPolarizationRcsSample>& s
 }  // namespace
 
 RirPolarizationObservation RirPolarizationFeatureExtractor::Extract(
-    const std::vector<session::RirPolarizationRcsSample>& samples, float look_az_deg,
+    const std::vector<session::RirPolSMatrixSample>& samples, float look_az_deg,
     float look_el_deg, float snr_db, float range_m) {
   RirPolarizationObservation observation;
   if (samples.empty() || !std::isfinite(snr_db) || snr_db < kMinimumObservationSnrDb ||

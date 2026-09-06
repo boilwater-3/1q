@@ -28,7 +28,7 @@ inline void SetProcessEnv(const char* name, const std::string& value) {
 /// 验收文件与天线/波位 CSV 钉到场景输出目录（库侧 env 覆盖优先级最高）。
 inline void BindAcceptanceLogPaths(const std::string& output_dir) {
   SetProcessEnv("ONEQ_RIR_ACCEPTANCE_LOG_PATH", output_dir + "/rir_acceptance.log");
-  SetProcessEnv("ONEQ_SBIRS_ACCEPTANCE_LOG_PATH", output_dir + "/sbirs_acceptance.log");
+  SetProcessEnv("ONEQ_OPIR_ACCEPTANCE_LOG_PATH", output_dir + "/opir_acceptance.log");
   SetProcessEnv("ONEQ_FUSION_ACCEPTANCE_LOG_PATH", output_dir + "/fusion_acceptance.log");
   SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH",
                 output_dir + "/inference_acceptance.log");

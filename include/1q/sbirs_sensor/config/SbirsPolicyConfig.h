@@ -58,13 +58,14 @@ struct ONEQ_API SbirsPointingDisturbanceConfig {
 };
 
 /**
- * @brief NFOV 资源调度器配置。
- * @note `max_concurrent_nfov_locks` 控制传感器上可同时凝视锁定不同目标的 NFOV 通道数。
- *       默认 1 等价单目标锁定策略；>1 时支持多通道同时捕获与跟踪（design 2.6）。
- *       取值必须 >= 1，由 `ValidateSbirsSessionConfig` 校验。
+ * @brief NFOV 资源调度器配置（单镜筒，2026-09-02 起）。
+ * @note 窄场只有一个镜筒（单执行器分时轮转）：可同时保持的精跟条数不再可配置——
+ *       由轮转物理涌现（分离目标轮空超过跟踪门容忍即丢锁）。历史配置项
+ *       `max_concurrent_nfov_locks` 已删除（等效多镜筒的虚构能力）。场景 JSON 残留
+ *       该键：sbirs 场景装载器显式拒绝报错；通用装载器（examples config_loader）
+ *       按忽略未知键的既有策略静默跳过。
  */
 struct ONEQ_API SbirsSchedulerConfig {
-  int max_concurrent_nfov_locks{1}; /**< 最大并发 NFOV 锁定通道数（>=1） */
   /**
    * @brief WFOV→NFOV 切换所需的连续 WFOV 检测命中次数（>=1）。
    * @note 宽窄切换前置条件：目标连续 N 个周期通过 WFOV 几何+SNR 门后才允许进入

@@ -68,7 +68,6 @@ sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
 
 sbirs_sensor::config::SbirsSessionConfig ImmMultiTargetConfig() {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   config.policy.tracking.estimated_backend =
       sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
@@ -254,9 +253,9 @@ TEST(SbirsPipelineTest, TruthModesHaveIdenticalCoastingLossAndChannelRelease) {
   const auto strict_snapshot = strict.CaptureRuntimeState();
   const auto sensor_snapshot = sensor.CaptureRuntimeState();
   EXPECT_EQ(strict_snapshot.target_states, sensor_snapshot.target_states);
-  EXPECT_TRUE(strict_snapshot.nfov_scheduler.target_to_channel.empty());
-  EXPECT_EQ(strict_snapshot.nfov_scheduler.target_to_channel,
-            sensor_snapshot.nfov_scheduler.target_to_channel);
+  EXPECT_TRUE(strict_snapshot.nfov_scheduler.target_to_cue_source.empty());
+  EXPECT_EQ(strict_snapshot.nfov_scheduler.target_to_cue_source,
+            sensor_snapshot.nfov_scheduler.target_to_cue_source);
   EXPECT_EQ(strict_snapshot.target_states.at(91U),
             sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
   EXPECT_EQ(sensor_snapshot.sensor_like_output_random_state, sensor_random_state);
@@ -321,7 +320,7 @@ TEST(SbirsPipelineTest, TruthRetagKeepsLockWhileEstimatedTransitionReleasesIt) {
       sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
   pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), retag);
   const auto retagged = pipeline.CaptureRuntimeState();
-  EXPECT_EQ(retagged.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(retagged.nfov_scheduler.target_to_cue_source, before.nfov_scheduler.target_to_cue_source);
   EXPECT_EQ(retagged.target_states.at(1U),
             sbirs_sensor::pipeline::SbirsTargetState::kSensorLikeTruthAssistedTracking);
   EXPECT_EQ(retagged.sensor_like_output_random_state,
@@ -332,7 +331,7 @@ TEST(SbirsPipelineTest, TruthRetagKeepsLockWhileEstimatedTransitionReleasesIt) {
   release.release_incompatible_tracks = true;
   pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), release);
   const auto released = pipeline.CaptureRuntimeState();
-  EXPECT_TRUE(released.nfov_scheduler.target_to_channel.empty());
+  EXPECT_TRUE(released.nfov_scheduler.target_to_cue_source.empty());
   EXPECT_EQ(released.target_states.at(1U),
             sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
 }
@@ -461,7 +460,7 @@ TEST(SbirsPipelineTest, TrackingGateCoastsOnceThenRecoversWithoutRawMeasurement)
   EXPECT_FALSE(coast.detections[0].record.detected);
   EXPECT_TRUE(coast.detections[0].attribution.nfov_tracking_coasting);
   EXPECT_EQ(coast.detections[0].attribution.nfov_tracking_gate_failure_count, 1U);
-  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(77U), 1U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_cue_source.count(77U), 1U);
 
   input.cycle_index = 3U;
   input.scene[0] = HotTarget(77U, 0.0);
@@ -500,7 +499,7 @@ TEST(SbirsPipelineTest, ConsecutiveTrackingGateFailuresReleaseLock) {
   EXPECT_FALSE(lost.detections[0].attribution.nfov_tracking_coasting);
   EXPECT_EQ(lost.detections[0].attribution.capture_failure_reason,
             sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost);
-  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(78U), 0U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_cue_source.count(78U), 0U);
 }
 
 // --- 宽窄切换连续命中计数器（3.2.1.3.2.1 前置条件） ---
@@ -529,7 +528,7 @@ TEST(SbirsPipelineTest, ConsecutiveHitGateDelaysHandoverUntilThresholdReached) {
   EXPECT_TRUE(first.detections[0].record.detected);
   EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.count(81U), 1U);
   EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.at(81U), 1U);
-  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(81U), 0U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_cue_source.count(81U), 0U);
 
   input.cycle_index = 2U;
   const auto second = pipeline.RunCycle(input);
@@ -621,7 +620,7 @@ TEST(SbirsPipelineTest, TrackingCoastSnapshotRestoreMatchesUninterrupted) {
   input.scene[0] = HotTarget(79U, 35000.0);
   uninterrupted.RunCycle(input);
   const auto coast_snapshot = uninterrupted.CaptureRuntimeState();
-  ASSERT_EQ(coast_snapshot.pointing_coordinator.channels[0].tracking_gate_failure_count, 1U);
+  ASSERT_EQ(coast_snapshot.pointing_coordinator.tracking_gate_failure_counts.at(79U), 1U);
 
   sbirs_sensor::pipeline::SbirsPipeline restored(
       sbirs_sensor::runtime::MapSessionToInternal(config));
@@ -749,7 +748,9 @@ TEST(SbirsPipelineTest, ConsecutiveNisGateExceededReleasesEstimatedTrackLock) {
   EXPECT_TRUE(reacquired.detections.front().record.detected);
 }
 
-TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {
+// 单镜筒轮转（2026-09-02）：优先级（SNR↓→距离↑→ID↑）决定入列顺序，轮转首服务
+// 取 ID 升序；同帧对两目标同周期完成捕获（窗口 + 免转动），不再有"强者独占资源"。
+TEST(SbirsSchedulerTest, PriorityOrdersEntryWhileRotationServesLowestIdFirst) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
@@ -768,8 +769,20 @@ TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {
           .AddTarget(strong)
           .Build();
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
-  ASSERT_FALSE(result.detections.empty());
-  EXPECT_EQ(result.detections.front().attribution.target_id, 2U);
+  std::size_t acquisitions = 0U;
+  for (const auto& detection : result.detections) {
+    if (detection.record.observation_stage ==
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition &&
+        detection.record.detected) {
+      ++acquisitions;
+    }
+  }
+  EXPECT_EQ(acquisitions, 2U);
+  const auto snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(snapshot.target_states.at(1U),
+            sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
+  EXPECT_EQ(snapshot.target_states.at(2U),
+            sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
 }
 
 // NFOV 首次捕获 raw 必须沿用带噪测量，而不是把通过 eligibility 的目标真值直写为观测；
@@ -993,10 +1006,16 @@ TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChann
 TEST(SbirsPipelineTest, MissingUnboundCandidateClearsCueHistory) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.narrow_cue_latency_s = 1.0f;
+  // 窄场压到 0.1° 且候选带横向速度（cue 延迟外推出界 → 捕获几何门失败）：候选保持
+  // 未锁定身份（cue 历史保留），缺席后清除。
+  config.mission.narrow_field_fov_az_deg = 0.1f;
+  config.mission.narrow_field_fov_el_deg = 0.1f;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
   const sbirs_sensor::session::SbirsSceneTarget locked = HotTarget(1U, 0.0);
-  const sbirs_sensor::session::SbirsSceneTarget waiting = HotTarget(2U, 5000.0);
+  sbirs_sensor::session::SbirsSceneTarget waiting = HotTarget(2U, 5000.0);
+  waiting.velocity_ecef_m_per_s = Vector(0.0, 1500000.0, 0.0);
+  waiting.has_velocity_ecef_m_per_s = true;
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
@@ -1052,8 +1071,8 @@ TEST(SbirsPipelineTest, ApplyingSameConfigPreservesAccumulatedState) {
   const auto snapshot = pipeline.CaptureRuntimeState();
   EXPECT_EQ(snapshot.cue_predictor.targets.count(23U), 1U);
   EXPECT_EQ(snapshot.target_states.count(23U), 1U);
-  ASSERT_EQ(snapshot.pointing_coordinator.channels.size(), 1U);
-  EXPECT_TRUE(snapshot.pointing_coordinator.channels.front().actuator.initialized);
+  EXPECT_TRUE(snapshot.pointing_coordinator.actuator_initialized);
+  EXPECT_TRUE(snapshot.pointing_coordinator.actuator.initialized);
 }
 
 TEST(SbirsPipelineTest, CircularScanSupportsDirectionBoundaryAndMultipleWraps) {
@@ -1086,38 +1105,109 @@ TEST(SbirsPipelineTest, CircularScanSupportsDirectionBoundaryAndMultipleWraps) {
   EXPECT_FLOAT_EQ(full_circle.CaptureRuntimeState().scan_phase_deg, 280.0f);
 }
 
-TEST(SbirsPipelineTest, ChannelShrinkKeepsLowChannelAndReleasesHighChannelState) {
-  sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+// 单镜筒分时轮转（2026-09-02）：分离双目标（±3°，6° 间隔 > 4° 窄场）交替伺服——
+// 被服务目标量测（转动 6°@30°/s 后稳定 ≈0.80s → 8 帧），轮空目标同帧外滑行
+// （帧数 0、门失败 ≤1 < 2 不丢锁）。容量由轮转物理涌现，无配置上限。
+TEST(SbirsPipelineTest, RotationTimeSharesSeparatedTargets) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_field_fov_az_deg = 4.0f;
+  config.mission.narrow_field_fov_el_deg = 4.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 30.0f;
+  config.mission.frame_rate_hz = 10.0f;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
-  pipeline.RunCycle(TwoTargetInput(1U));
-  const auto before = pipeline.CaptureRuntimeState();
-  ASSERT_EQ(before.nfov_scheduler.target_to_channel.size(), 2U);
-  std::uint64_t low_target_id = 0U;
-  std::uint64_t high_target_id = 0U;
-  for (const auto& entry : before.nfov_scheduler.target_to_channel) {
-    if (entry.second == 0) low_target_id = entry.first;
-    if (entry.second == 1) high_target_id = entry.first;
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, -3.0, 0.0))
+          .AddTarget(HotTargetAtAngles(2U, 3.0, 0.0))
+          .Build();
+
+  // 前两周期：轮转先后完成两目标首捕（单镜筒一次只服务一个方向）。
+  pipeline.RunCycle(input);
+  input.cycle_index = 2U;
+  pipeline.RunCycle(input);
+  const auto snapshot = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_cue_source.size(), 2U);
+  EXPECT_EQ(snapshot.target_states.at(1U),
+            sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
+  EXPECT_EQ(snapshot.target_states.at(2U),
+            sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
+
+  // 稳态交替：任一周期恰有一个目标量测（NFOV 跟踪、帧数=稳定时长×帧率）、
+  // 另一个滑行（帧数 0）；连续两周期两目标的量测角色互换。
+  input.cycle_index = 3U;
+  const auto first = pipeline.RunCycle(input);
+  input.cycle_index = 4U;
+  const auto second = pipeline.RunCycle(input);
+  const auto& first_by_target = first.detections;
+  const auto& second_by_target = second.detections;
+  ASSERT_EQ(first_by_target.size(), 2U);
+  ASSERT_EQ(second_by_target.size(), 2U);
+  int first_t1_frames = -1;
+  int first_t2_frames = -1;
+  int second_t1_frames = -1;
+  int second_t2_frames = -1;
+  for (const auto& detection : first.detections) {
+    if (detection.attribution.target_id == 1U) first_t1_frames = detection.attribution.nfov_frame_count;
+    if (detection.attribution.target_id == 2U) first_t2_frames = detection.attribution.nfov_frame_count;
   }
-  ASSERT_NE(low_target_id, 0U);
-  ASSERT_NE(high_target_id, 0U);
+  for (const auto& detection : second.detections) {
+    if (detection.attribution.target_id == 1U) second_t1_frames = detection.attribution.nfov_frame_count;
+    if (detection.attribution.target_id == 2U) second_t2_frames = detection.attribution.nfov_frame_count;
+  }
+  // 6° 转动 @30°/s：稳定 ≈(6−0.01)/30=0.20s，帧数 = round(10×0.80)=8。
+  EXPECT_EQ(first_t1_frames + first_t2_frames, 8);
+  EXPECT_EQ(second_t1_frames + second_t2_frames, 8);
+  EXPECT_EQ(std::min(first_t1_frames, first_t2_frames), 0);
+  EXPECT_EQ(std::min(second_t1_frames, second_t2_frames), 0);
+  // 角色互换：上一周期量测者下一周期滑行。
+  EXPECT_EQ(first_t1_frames, second_t2_frames);
+  EXPECT_NE(first_t1_frames, second_t1_frames);
+}
 
-  config.policy.scheduler.max_concurrent_nfov_locks = 1;
-  sbirs_sensor::runtime::SbirsRuntimeConfigImpact impact;
-  impact.nfov_channel_count_changed = true;
-  impact.previous_nfov_channel_count = 2;
-  impact.next_nfov_channel_count = 1;
-  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), impact);
+// 同帧免费多跟（2026-09-02）：两目标同处一个窄视场（间隔 1° < 8°）——无论轮转服务
+// 谁，另一目标同帧搭车量测，两目标每周期都满帧（10 帧，与单目标口径一致）。
+TEST(SbirsPipelineTest, InFrameTargetsRideAlongWithFullFrames) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_field_fov_az_deg = 8.0f;
+  config.mission.narrow_field_fov_el_deg = 8.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 30.0f;
+  config.mission.frame_rate_hz = 10.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, -0.5, 0.0))
+          .AddTarget(HotTargetAtAngles(2U, 0.5, 0.0))
+          .Build();
 
-  const auto after = pipeline.CaptureRuntimeState();
-  ASSERT_EQ(after.nfov_scheduler.target_to_channel.size(), 1U);
-  EXPECT_EQ(after.nfov_scheduler.target_to_channel.at(low_target_id), 0);
-  EXPECT_EQ(after.target_states.at(high_target_id),
-            sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
-  EXPECT_EQ(after.filter_states.count(low_target_id), 1U);
-  EXPECT_EQ(after.filter_states.count(high_target_id), 0U);
-  ASSERT_EQ(after.pointing_coordinator.channels.size(), 1U);
-  EXPECT_EQ(after.pointing_coordinator.channels.front().target_id, low_target_id);
+  // 周期 1：先服务目标 1；目标 2 同帧 → 免转动捕获。
+  pipeline.RunCycle(input);
+  const auto snapshot = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_cue_source.size(), 2U);
+
+  input.cycle_index = 2U;
+  const auto result = pipeline.RunCycle(input);
+  ASSERT_EQ(result.detections.size(), 2U);
+  for (const auto& detection : result.detections) {
+    EXPECT_EQ(detection.record.observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+    EXPECT_TRUE(detection.record.detected);
+    EXPECT_EQ(detection.attribution.nfov_frame_count, 10);
+    EXPECT_FALSE(detection.attribution.nfov_tracking_coasting);
+  }
 }
 
 TEST(SbirsPipelineTest, StatisticalPatchesResetOnlyTheirConsecutiveCounters) {
@@ -1126,9 +1216,9 @@ TEST(SbirsPipelineTest, StatisticalPatchesResetOnlyTheirConsecutiveCounters) {
       sbirs_sensor::runtime::MapSessionToInternal(config));
   pipeline.RunCycle(TwoTargetInput(1U));
   auto seeded = pipeline.CaptureRuntimeState();
-  const std::uint64_t target_id = seeded.nfov_scheduler.target_to_channel.begin()->first;
+  const std::uint64_t target_id = seeded.nfov_scheduler.target_to_cue_source.begin()->first;
   seeded.nis_gate_exceeded_counts[target_id] = 3U;
-  seeded.pointing_coordinator.channels.front().tracking_gate_failure_count = 1U;
+  seeded.pointing_coordinator.tracking_gate_failure_counts[target_id] = 1U;
   ASSERT_TRUE(pipeline.RestoreRuntimeState(seeded));
   const auto before = pipeline.CaptureRuntimeState();
 
@@ -1145,11 +1235,10 @@ TEST(SbirsPipelineTest, StatisticalPatchesResetOnlyTheirConsecutiveCounters) {
   EXPECT_TRUE(after.filter_states.at(target_id).covariance.isApprox(
       before.filter_states.at(target_id).covariance));
   EXPECT_EQ(after.nis_gate_exceeded_counts.at(target_id), 0U);
-  EXPECT_EQ(after.pointing_coordinator.channels.front().tracking_gate_failure_count, 0U);
-  EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
-  EXPECT_EQ(after.pointing_coordinator.channels.front().target_id, target_id);
-  EXPECT_EQ(after.pointing_coordinator.channels.front().actuator.initialized,
-            before.pointing_coordinator.channels.front().actuator.initialized);
+  EXPECT_EQ(after.pointing_coordinator.tracking_gate_failure_counts.count(target_id), 0U);
+  EXPECT_EQ(after.nfov_scheduler.target_to_cue_source, before.nfov_scheduler.target_to_cue_source);
+  EXPECT_EQ(after.pointing_coordinator.actuator.initialized,
+            before.pointing_coordinator.actuator.initialized);
 }
 
 TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
@@ -1169,14 +1258,12 @@ TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
   EXPECT_NE(measurement_reset.sensor_like_output_random_state, 0U);
   EXPECT_EQ(measurement_reset.pointing_coordinator.disturbance.base_seed,
             initial.pointing_coordinator.disturbance.base_seed);
-  EXPECT_EQ(measurement_reset.nfov_scheduler.target_to_channel,
-            initial.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(measurement_reset.nfov_scheduler.target_to_cue_source,
+            initial.nfov_scheduler.target_to_cue_source);
 
   config.policy.pointing_disturbance.random_seed = 101U;
   sbirs_sensor::runtime::SbirsRuntimeConfigImpact pointing_impact;
   pointing_impact.restart_pointing_disturbance = true;
-  pointing_impact.previous_nfov_channel_count = 1;
-  pointing_impact.next_nfov_channel_count = 1;
   pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), pointing_impact);
   const auto pointing_reset = pipeline.CaptureRuntimeState();
   EXPECT_EQ(pointing_reset.wfov_measurement_random_state,
@@ -1186,12 +1273,10 @@ TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
   EXPECT_EQ(pointing_reset.sensor_like_output_random_state,
             measurement_reset.sensor_like_output_random_state);
   EXPECT_EQ(pointing_reset.pointing_coordinator.disturbance.base_seed, 101U);
-  EXPECT_EQ(pointing_reset.nfov_scheduler.target_to_channel,
-            measurement_reset.nfov_scheduler.target_to_channel);
-  EXPECT_EQ(pointing_reset.pointing_coordinator.channels.front().target_id,
-            measurement_reset.pointing_coordinator.channels.front().target_id);
-  EXPECT_EQ(pointing_reset.pointing_coordinator.channels.front().actuator.initialized,
-            measurement_reset.pointing_coordinator.channels.front().actuator.initialized);
+  EXPECT_EQ(pointing_reset.nfov_scheduler.target_to_cue_source,
+            measurement_reset.nfov_scheduler.target_to_cue_source);
+  EXPECT_EQ(pointing_reset.pointing_coordinator.actuator.initialized,
+            measurement_reset.pointing_coordinator.actuator.initialized);
 }
 
 TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
@@ -1221,8 +1306,7 @@ TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
   const auto first_snapshot = uninterrupted.CaptureRuntimeState();
   EXPECT_EQ(first_snapshot.target_states.at(41U),
             sbirs_sensor::pipeline::SbirsTargetState::kAwaitingNfovAcquisition);
-  ASSERT_EQ(first_snapshot.pointing_coordinator.channels.size(), 1U);
-  EXPECT_TRUE(first_snapshot.pointing_coordinator.channels.front().has_bound_target);
+  EXPECT_TRUE(first_snapshot.pointing_coordinator.actuator_initialized);
 
   sbirs_sensor::pipeline::SbirsPipeline restored(
       sbirs_sensor::runtime::MapSessionToInternal(config));
@@ -1233,8 +1317,8 @@ TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
   EXPECT_EQ(uninterrupted_second.detections.front().record.observation_stage,
             restored_second.detections.front().record.observation_stage);
   EXPECT_DOUBLE_EQ(
-      uninterrupted.CaptureRuntimeState().pointing_coordinator.channels.front().elapsed_wait_sec,
-      restored.CaptureRuntimeState().pointing_coordinator.channels.front().elapsed_wait_sec);
+      uninterrupted.CaptureRuntimeState().pointing_coordinator.acquisition_wait_sec.at(41U),
+      restored.CaptureRuntimeState().pointing_coordinator.acquisition_wait_sec.at(41U));
 
   uninterrupted.RunCycle(make_input(3U));
   uninterrupted.RunCycle(make_input(4U));
@@ -1269,7 +1353,7 @@ TEST(SbirsPipelineTest, PointingTimeoutReleasesWithoutSameCycleReschedule) {
   };
   pipeline.RunCycle(make_input(1U));
   auto snapshot = pipeline.CaptureRuntimeState();
-  snapshot.pointing_coordinator.channels.front().elapsed_wait_sec = 1.9999;
+  snapshot.pointing_coordinator.acquisition_wait_sec[42U] = 1.9999;
   ASSERT_TRUE(pipeline.RestoreRuntimeState(snapshot));
 
   const auto result = pipeline.RunCycle(make_input(2U));
@@ -1278,8 +1362,8 @@ TEST(SbirsPipelineTest, PointingTimeoutReleasesWithoutSameCycleReschedule) {
   EXPECT_EQ(result.detections.front().attribution.capture_failure_reason,
             sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
   const auto after = pipeline.CaptureRuntimeState();
-  EXPECT_EQ(after.nfov_scheduler.target_to_channel.count(42U), 0U);
-  EXPECT_FALSE(after.pointing_coordinator.channels.front().has_bound_target);
+  EXPECT_EQ(after.nfov_scheduler.target_to_cue_source.count(42U), 0U);
+  EXPECT_EQ(after.pointing_coordinator.acquisition_wait_sec.count(42U), 0U);
 }
 
 TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
@@ -1301,15 +1385,15 @@ TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
                         .Build());
   const auto before = pipeline.CaptureRuntimeState();
   auto invalid = before;
-  invalid.pointing_coordinator.channels.front().target_id = 99U;
+  // 非法：捕获等待挂在未被调度的目标上（集合与簿记不一致）。
+  invalid.pointing_coordinator.acquisition_wait_sec[99U] = 1.0;
   invalid.pointing_coordinator.disturbance.common.random_state = 0U;
   EXPECT_FALSE(pipeline.RestoreRuntimeState(invalid));
   const auto after = pipeline.CaptureRuntimeState();
-  EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
-  EXPECT_EQ(after.pointing_coordinator.channels.front().target_id,
-            before.pointing_coordinator.channels.front().target_id);
-  EXPECT_DOUBLE_EQ(after.pointing_coordinator.channels.front().elapsed_wait_sec,
-                   before.pointing_coordinator.channels.front().elapsed_wait_sec);
+  EXPECT_EQ(after.nfov_scheduler.target_to_cue_source, before.nfov_scheduler.target_to_cue_source);
+  EXPECT_EQ(after.pointing_coordinator.acquisition_wait_sec, before.pointing_coordinator.acquisition_wait_sec);
+  EXPECT_EQ(after.pointing_coordinator.actuator.initialized,
+            before.pointing_coordinator.actuator.initialized);
   EXPECT_EQ(after.pointing_coordinator.disturbance.common.random_state,
             before.pointing_coordinator.disturbance.common.random_state);
 }
@@ -1343,7 +1427,7 @@ TEST(SbirsPipelineTest, InvalidTrackingSnapshotRestoreIsAtomic) {
 
   const auto after = pipeline.CaptureRuntimeState();
   EXPECT_EQ(after.target_states, before.target_states);
-  EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(after.nfov_scheduler.target_to_cue_source, before.nfov_scheduler.target_to_cue_source);
   EXPECT_EQ(after.wfov_measurement_random_state, before.wfov_measurement_random_state);
   EXPECT_EQ(after.estimated_measurement_random_state,
             before.estimated_measurement_random_state);
@@ -1376,10 +1460,16 @@ TEST(SbirsPipelineTest, InvalidImmSnapshotRestoreIsAtomic) {
   ExpectImmTargetStateEqual(after, before, 2U);
 }
 
-// 调度跳过诊断：目标 A 已锁定 NFOV，候选 B 被 WFOV 发现但资源被占用，
-// 应产出 kSchedulerSkipped 归属（record.detected=true，仅 attribution 标记跳过）。
-TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
-  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+// 单镜筒轮转（2026-09-02）：目标 A 已锁定 NFOV，候选 B 被 WFOV 发现后进入捕获
+// 等待（Awaiting）而非"资源跳过"——锁定集合无上限，B 保持宽场候选行等待轮转窗口，
+// attribution 不再标 kSchedulerSkipped。
+TEST(SbirsPipelineTest, LockedTargetLetsOtherCandidateAwaitRotationWindow) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  // B 放到 45° 偏角（>30°/s×1s 转不完）：首窗口"转向中"，保持 Awaiting 等待下窗。
+  config.mission.wide_field_fov_az_deg = 90.0f;
+  config.mission.wide_field_fov_el_deg = 90.0f;
+  config.mission.narrow_field_fov_az_deg = 4.0f;
+  config.mission.narrow_field_fov_el_deg = 4.0f;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
 
@@ -1395,7 +1485,7 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
           .Build();
   pipeline.RunCycle(first);
 
-  // 第二周期：A 继续锁定，新增候选 B（不同 y 避免重合）。
+  // 第二周期：A 继续锁定，新增候选 B（45° 偏角，本周期转不完）。
   sbirs_sensor::session::SbirsCycleInput second =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
@@ -1403,41 +1493,41 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
           .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
-          .AddTarget(HotTarget(1U, 0.0))
-          .AddTarget(HotTarget(2U, 5.0))
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .AddTarget(HotTargetAtAngles(2U, 45.0, 0.0))
           .Build();
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(second);
 
-  // A 产出 NFOV track；B 作为 WFOV 候选但被调度跳过。
-  bool found_skipped = false;
+  // A 产出 NFOV track；B 保持宽场候选行（Awaiting，窄场归属 0），不再标调度跳过。
+  bool found_awaiting = false;
   bool found_track = false;
   for (const sbirs_sensor::pipeline::SbirsPipelineDetection& detection : result.detections) {
     if (detection.attribution.target_id == 1U) {
       found_track = true;
       EXPECT_EQ(detection.attribution.capture_failure_reason,
                 sbirs_sensor::attribution::SbirsCaptureFailureReason::kNone);
-      EXPECT_GE(detection.attribution.nfov_channel_id, 0);  // 已锁定目标带通道编号
     }
     if (detection.attribution.target_id == 2U) {
-      found_skipped = true;
+      found_awaiting = true;
       EXPECT_EQ(detection.attribution.capture_failure_reason,
-                sbirs_sensor::attribution::SbirsCaptureFailureReason::kSchedulerSkipped);
-      EXPECT_EQ(detection.attribution.nfov_channel_id, -1);  // WFOV 候选无通道
+                sbirs_sensor::attribution::SbirsCaptureFailureReason::kNone);
+      EXPECT_EQ(detection.attribution.nfov_channel_id, 0);  // 已入列等待轮转窗口
     }
   }
   EXPECT_TRUE(found_track);
-  EXPECT_TRUE(found_skipped);
+  EXPECT_TRUE(found_awaiting);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().target_states.at(2U),
+            sbirs_sensor::pipeline::SbirsTargetState::kAwaitingNfovAcquisition);
 }
 
-// design 2.6 多通道：max_concurrent_nfov_locks=2 时，两目标在同一周期同时捕获，
-// 各占独立通道（0 与 1），并产出各自的 NFOV acquisition 检测。
-TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
+// 同帧对（2026-09-02 单镜筒）：两目标同处一个窄视场——轮转窗口捕获第一个，
+// 第二个同帧免转动捕获；随后两目标逐周期都产出 NFOV track（同帧免费多跟）。
+TEST(SbirsPipelineTest, InFramePairAcquiresInOneCycleAndTracksTogether) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
 
-  // 第一周期：两个热目标同时进入 WFOV，均应被捕获（两通道）。
+  // 第一周期：两个热目标同时进入 WFOV 且同帧，均应被捕获（窗口 + 免转动）。
   sbirs_sensor::session::SbirsCycleInput first =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
@@ -1462,14 +1552,12 @@ TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
   }
   EXPECT_EQ(acquisitions, 2U);
 
-  // 快照确认两目标各自锁定到不同通道。
+  // 快照确认两目标都已进入锁定集合（单镜筒无通道区分）。
   const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
-  ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(1U), 1U);
-  ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(2U), 1U);
-  EXPECT_NE(snapshot.nfov_scheduler.target_to_channel.at(1U),
-            snapshot.nfov_scheduler.target_to_channel.at(2U));
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_cue_source.count(1U), 1U);
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_cue_source.count(2U), 1U);
 
-  // 第二周期：两目标各自进入 NFOV track（kNarrowFieldTrack）。
+  // 第二周期：两目标同帧免费多跟，均产出 NFOV track（kNarrowFieldTrack）。
   sbirs_sensor::session::SbirsCycleInput second =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
@@ -1891,13 +1979,15 @@ TEST(SbirsPipelineTest, AttributionCarriesCurrentInstantMaxDetectionRange) {
   ASSERT_FALSE(result.detections.empty());
 
   // 期望值由模块各单测覆盖的组成函数独立拼出（透过率/噪声/反解）。
-  const float transmittance = sbirs_sensor::environment::ResolveEffectiveTransmittance(
-      config.environment);
+  // 星目双端均在壳外（7000/8000 km > 壳顶 6471 km，近地点=卫星 629 km 高）：
+  // 壳段气团 X=0 → τ_geo=1（纯空间路径不扣大气，2026-09-02 冻结契约）。
+  const float transmittance_geo = sbirs_sensor::environment::ResolveGeometricTransmittance(
+      config.environment, Vector(7000000.0, 0.0, 0.0), Vector(8000000.0, 0.0, 0.0));
   const double effective_noise_w = sbirs_sensor::foundation::ResolveEffectiveNoiseW(
       config.hardware, sbirs_sensor::foundation::ComputeBackgroundNoiseStatistics(config.hardware));
   const double expected_d_max = sbirs_sensor::foundation::ComputeMaxDetectionRangeM(
       1.0e8, config.hardware.optical_aperture_m, config.hardware.optical_transmission,
-      transmittance, config.hardware.detector_quantum_efficiency,
+      transmittance_geo, config.hardware.detector_quantum_efficiency,
       config.hardware.integration_time_sec, effective_noise_w,
       config.policy.detection.wide_min_snr_linear);
   EXPECT_GT(expected_d_max, 0.0);
@@ -1908,13 +1998,18 @@ TEST(SbirsPipelineTest, AttributionCarriesCurrentInstantMaxDetectionRange) {
 }
 
 // 气象恶化（雾）→ τ_eff 下降 → 同一目标 d_max 变小（d_max 随周期环境快照变化）。
+// 目标置于大气壳内（79 km 高，r=6450 km < 壳顶 6471 km）：视线穿壳，τ_geo=τ_eff^X
+// 随天气变化；扫描窗挪到方位 175° 盖住天底方向的视线（X=0.21，穿壳弦 21 km）。
 TEST(SbirsPipelineTest, MaxDetectionRangeShrinksUnderFog) {
   const auto run_first_attribution_d_max = [](
                                               sbirs_sensor::config::SbirsWeatherType weather) {
     sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
     config.environment.weather_type = weather;
+    config.mission.scan_start_az_deg = 175.0f;  // 视线方位 180°（天底）需入扫描窗
     sbirs_sensor::pipeline::SbirsPipeline pipeline(
         sbirs_sensor::runtime::MapSessionToInternal(config));
+    sbirs_sensor::session::SbirsSceneTarget shell_target = HotTarget(7U, 0.0);
+    shell_target.position_ecef_m = Vector(6450000.0, 0.0, 0.0);
     const sbirs_sensor::session::SbirsCycleInput input =
         sbirs_sensor::session::SbirsCycleInputBuilder()
             .WithCycleIndex(1U)
@@ -1922,7 +2017,7 @@ TEST(SbirsPipelineTest, MaxDetectionRangeShrinksUnderFog) {
             .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
             .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
             .WithSatelliteVelocity(Vector(0.0, 0.0, 0.0)).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
-            .AddTarget(HotTarget(7U, 0.0))
+            .AddTarget(shell_target)
             .Build();
     const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
     EXPECT_FALSE(result.detections.empty());
@@ -2658,6 +2753,86 @@ TEST(SbirsPipelineTest, WfovWideElevationCoverageExecutesCleanly) {
 
   const auto result = pipeline.RunCycle(input);
   EXPECT_TRUE(result.issues.empty() || result.issues.size() <= 2U);
+}
+
+TEST(SbirsPipelineTest, ExternalCueGuidesOutOfWfovTargetIntoNfov) {
+  // cross-cue（2026-09-01）：目标在本星宽场扫描带外 → 无 cue 时 out_of_wfov 排除；
+  // 注入外部引导（来源星带误差测角+距离，修订 5 运行时注入）→ 外部候选进同池调度
+  // → 窄场捕获 → 归属标记引导来源星 ID（修订 4 同池同规则，来源只记录）。
+  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  // 本星 ECEF (7000000,0,0)，GMST≈0 → ECI≡ECEF；扫描带中心近方位 0°，目标在 77°。
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(1U, 4500000.0))
+          .Build();
+
+  // 1) 无 cue：目标在宽场外，走排除路径（不产生候选）。
+  {
+    sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+    EXPECT_NE(FindIssue(result, "sbirs.target_out_of_wfov"), nullptr);
+    EXPECT_TRUE(result.detections.empty());
+  }
+
+  // 2) 注入外部引导：来源星 ECEF (6000000,1000000,0) 看到同一目标（真值 ECEF
+  //    (8000000,4500000,0)），LOS 方位≈60.25°、俯仰 0°、距离≈4.03e6 m。
+  sbirs_sensor::session::SbirsExternalCue cue;
+  cue.target_id = 1U;
+  cue.source_satellite_entity_id = 104U;
+  cue.source_position_ecef_m = Vector(6000000.0, 1000000.0, 0.0);
+  cue.azimuth_deg = 60.2551f;
+  cue.elevation_deg = 0.0f;
+  cue.range_m = 4031129.0;
+  pipeline.SubmitExternalCue(cue);
+  {
+    sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+    // 外部候选进调度并窄场捕获：输出帧至少一条检测，归属带来源星 ID。
+    EXPECT_FALSE(result.detections.empty());
+    bool saw_cue_sourced = false;
+    for (const sbirs_sensor::pipeline::SbirsPipelineDetection& detection : result.detections) {
+      if (detection.attribution.target_id == 1U &&
+          detection.attribution.cue_source_satellite_entity_id == 104) {
+        saw_cue_sourced = true;
+      }
+    }
+    EXPECT_TRUE(saw_cue_sourced);
+  }
+}
+
+TEST(SbirsPipelineTest, ExternalCueInvalidIsDroppedWithIssue) {
+  // 非法 cue（非正距离）：注入点消费时整条丢弃并计 kInfo issue，不影响其余目标。
+  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(1U, 4500000.0))
+          .Build();
+  sbirs_sensor::session::SbirsExternalCue bad_cue;
+  bad_cue.target_id = 1U;
+  bad_cue.source_satellite_entity_id = 104U;
+  bad_cue.source_position_ecef_m = Vector(6000000.0, 1000000.0, 0.0);
+  bad_cue.azimuth_deg = 60.2551f;
+  bad_cue.elevation_deg = 0.0f;
+  bad_cue.range_m = -1.0;  // 非正距离
+  pipeline.SubmitExternalCue(bad_cue);
+  sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_NE(FindIssue(result, "sbirs.external_cue_invalid"), nullptr);
+  EXPECT_TRUE(result.detections.empty());
 }
 
 }  // namespace

@@ -214,7 +214,7 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
         std::chrono::steady_clock::now();
     sbirs_sensor::session::SbirsSession sbirs_session =
         sbirs_sensor::session::SbirsSession::Create(configs.sbirs);
-    app::LogAcceptanceMs(0, 0.0, "初始化时间性能测试", "SBIRS",
+    app::LogAcceptanceMs(0, 0.0, "初始化时间性能测试", "OPIR",
                           app::SteadyElapsedMs(sbirs_create_begin));
     platform.Attach(std::make_unique<ca::SbirsSensorComponent>(std::move(sbirs_session)));
   }
@@ -259,7 +259,7 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
       loaded_models.push_back("EOS");
     }
     if (scene_data.sbirs_enabled) {
-      loaded_models.push_back("SBIRS");
+      loaded_models.push_back("OPIR");
     }
     if (scene_data.sar_enabled) {
       loaded_models.push_back("SAR");

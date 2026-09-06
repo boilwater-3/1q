@@ -15,6 +15,7 @@
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsExternalCue.h"
 
 namespace sbirs_sensor {
 namespace session {
@@ -56,6 +57,16 @@ class ONEQ_API SbirsSession {
    * @return patch 有效且产生更新返回 true；patch 无效或无可更新项返回 false
    */
   bool TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 运行时注入一条星间 cross-cue（交叉提示）引导消息。
+   * @param[in] cue 引导消息：来源星宽场带误差测角（ECI）+ 带误差距离 + 来源星 ECEF 位置。
+   * @note 运行时输入（修订 5，2026-09-01）：不进每帧 `SbirsCycleInput`；消息入运行期
+   *       队列，下一次 `StepWithResult` 开始时消费。非法消息（非有限角度/非正距离/
+   *       未知目标键）消费时丢弃并计入该周期 issues（kInfo）。队列不属于快照：回放
+   *       路径从不注入，恢复后行为逐位一致。实例非线程安全（与周期步进同线程调用）。
+   */
+  void SubmitExternalCue(const SbirsExternalCue& cue);
 
   /**
    * @brief 标注本会话卫星实体/融合源 ID（仅进验收日志行的 卫星ID=/相对卫星ID= 字段）。

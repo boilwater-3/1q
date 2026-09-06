@@ -352,6 +352,34 @@ struct SbirsFrameSubmittedEvent {
 };
 
 /**
+ * @brief 星间 cross-cue（交叉提示）递话条目：来源星宽场量测（裁定 2 口径）。
+ *
+ * 只带量测链量（ECI 视线角 + 带误差距离），不携带目标位置类合成量；
+ * 受话星按来源星位置 + 距离 × 视线方向三角化后转自己视角。
+ */
+struct SbirsCrossCueItem {
+  std::uint64_t target_id{0U};  /**< 被引导目标 ID */
+  float azimuth_rad{0.0f};      /**< 来源星宽场量测方位（ECI 极坐标，带误差，rad） */
+  float elevation_rad{0.0f};    /**< 来源星宽场量测俯仰（ECI 极坐标，带误差，rad） */
+  double range_m{0.0};          /**< 来源星带误差距离（误差模型，m） */
+};
+
+/**
+ * @brief 星间 cross-cue 递话：卫星 → 地面站 → 其他卫星（星→地→星，2026-09-01 裁定 1）。
+ *
+ * 来源星每周期把自星宽场检出（stage-0）打包外发；地面站原样转发，各受话星
+ * 忽略自己发的，按"收到周期 < 本周期"节拍在下一周期步进前注入会话。
+ */
+struct SbirsCrossCueEvent {
+  std::uint64_t cycle{0U};       /**< 来源星量测周期号 */
+  std::uint32_t source_satellite_entity_id{0U}; /**< 来源星实体/融合源 ID */
+  double satellite_ecef_x_m{0.0}; /**< 来源星 ECEF X（m；受话星旋 ECI 三角化用） */
+  double satellite_ecef_y_m{0.0}; /**< 来源星 ECEF Y（m） */
+  double satellite_ecef_z_m{0.0}; /**< 来源星 ECEF Z（m） */
+  std::vector<SbirsCrossCueItem> cues{}; /**< 本周期递话条目（可空） */
+};
+
+/**
  * @brief 落点预报外发：地面站融合枢纽 → 订阅方（评审 2026-08-26 条12 真外发通道）。
  *
  * 载荷自包含（展平 LLA + 误差 1-σ），订阅方无需回查库内对象；每周期每有落点解

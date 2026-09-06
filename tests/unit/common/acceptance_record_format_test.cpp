@@ -17,7 +17,7 @@ const char* kTestPath = "oneq_acceptance_format_test.log";
 class AcceptanceRecordFormatTest : public ::testing::Test {
  protected:
   void TearDown() override {
-    oneq::logging::CloseAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs);
+    oneq::logging::CloseAcceptanceLog(oneq::logging::AcceptanceChannel::kOpir);
     std::remove(kTestPath);
   }
 };
@@ -31,13 +31,13 @@ TEST_F(AcceptanceRecordFormatTest, FourFieldLineShape) {
 }
 
 TEST_F(AcceptanceRecordFormatTest, WriteAndReadFile) {
-  oneq::logging::OpenAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs, kTestPath);
-  ASSERT_TRUE(oneq::logging::IsAcceptanceLogOpen(oneq::logging::AcceptanceChannel::kSbirs));
+  oneq::logging::OpenAcceptanceLog(oneq::logging::AcceptanceChannel::kOpir, kTestPath);
+  ASSERT_TRUE(oneq::logging::IsAcceptanceLogOpen(oneq::logging::AcceptanceChannel::kOpir));
   oneq::logging::WriteAcceptanceLog(
-      oneq::logging::AcceptanceChannel::kSbirs,
+      oneq::logging::AcceptanceChannel::kOpir,
       oneq::logging::FormatAcceptanceLine(0.0f, 0U, "初始化时间", "见integration_events.log"));
-  oneq::logging::FlushAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs);
-  oneq::logging::CloseAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs);
+  oneq::logging::FlushAcceptanceLog(oneq::logging::AcceptanceChannel::kOpir);
+  oneq::logging::CloseAcceptanceLog(oneq::logging::AcceptanceChannel::kOpir);
 
   std::ifstream in(kTestPath, std::ios::binary);
   std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());

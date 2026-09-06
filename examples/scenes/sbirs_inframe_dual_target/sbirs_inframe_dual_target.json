@@ -1,0 +1,148 @@
+{
+  "name": "sbirs_inframe_dual_target",
+  "cycles": 80,
+  "dt_sec": 1.0,
+  "log_dir": "sbirs_inframe_dual_target",
+  "utc_julian_day": 2451544.2230698913,
+  "inference_horizon_sec": 1200.0,
+  "fusion": {
+    "track_bearing_init_range_m": 36000000.0,
+    "track_bearing_init_range_std_m": 8000000.0,
+    "relay_fov_width_deg": 24.0
+  },
+  "precision": {
+    "dual_sat_pair_window_cycles": 1
+  },
+  "satellites": [
+    {
+      "id": "A",
+      "source_id": 4,
+      "cross_cue": true,
+      "position_lla_deg_m": [
+        0.0,
+        -25.212457,
+        35778820.868343
+      ],
+      "velocity_ecef_mps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scan_azimuth_reference": "kNadirRelative",
+      "scan_start_az_deg": 0.0,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 6.0,
+      "wide_field_fov_az_deg": 8.7,
+      "wide_field_fov_el_deg": 8.7,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-14,
+      "integration_time_sec": 1.0,
+      "frame_rate_hz": 10.0,
+      "fov_sigma_deg": 0.0001
+    },
+    {
+      "id": "B",
+      "source_id": 104,
+      "cross_cue": true,
+      "position_lla_deg_m": [
+        0.0,
+        -145.212457,
+        35778821.14648
+      ],
+      "velocity_ecef_mps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mount_angles_deg": [
+        -0.6,
+        0.4,
+        0.8
+      ],
+      "scan_azimuth_reference": "kNadirRelative",
+      "scan_start_az_deg": 0.0,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 6.0,
+      "wide_field_fov_az_deg": 8.7,
+      "wide_field_fov_el_deg": 8.7,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-14,
+      "integration_time_sec": 1.0,
+      "frame_rate_hz": 10.0,
+      "fov_sigma_deg": 0.0001
+    },
+    {
+      "id": "C",
+      "source_id": 204,
+      "cross_cue": true,
+      "position_lla_deg_m": [
+        0.0,
+        94.787543,
+        35778821.00379
+      ],
+      "velocity_ecef_mps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mount_angles_deg": [
+        0.4,
+        -0.7,
+        0.3
+      ],
+      "scan_azimuth_reference": "kNadirRelative",
+      "scan_start_az_deg": 0.0,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 6.0,
+      "wide_field_fov_az_deg": 8.7,
+      "wide_field_fov_el_deg": 8.7,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-14,
+      "integration_time_sec": 1.0,
+      "frame_rate_hz": 10.0,
+      "fov_sigma_deg": 0.0001
+    }
+  ],
+  "targets": [
+    {
+      "key": 1,
+      "position_lla_deg_m": [
+        15.0,
+        -85.0,
+        600000.0
+      ],
+      "velocity_enu_mps": [
+        300.0,
+        -1800.0,
+        80.0
+      ],
+      "radiant_intensity_w_per_sr": 10000.0
+    },
+    {
+      "key": 2,
+      "position_lla_deg_m": [
+        15.4,
+        -85.0,
+        570000.0
+      ],
+      "velocity_enu_mps": [
+        280.0,
+        -1760.0,
+        70.0
+      ],
+      "radiant_intensity_w_per_sr": 10000.0
+    }
+  ]
+}

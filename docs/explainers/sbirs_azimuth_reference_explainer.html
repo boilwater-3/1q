@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>SBIRS 方位基准图解 — kNadirRelative 和 scan_start_az_deg 什么关系</title>
+<style>
+  :root { --bg:#10151c; --panel:#171e27; --ink:#dce4ee; --muted:#8393a8; --line:#242e3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:14px 18px; background:var(--bg); color:var(--ink);
+         font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif; }
+  h1 { font-size:17px; margin:0 0 4px; }
+  h2 { font-size:14px; margin:0 0 8px; color:#aebdd2; }
+  .sub { color:var(--muted); font-size:12.5px; margin-bottom:10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:12px 14px; margin-bottom:14px; }
+  #err { display:none; color:#ff8a70; font-size:13px; padding:8px 12px; margin-bottom:12px;
+         border:1px solid #a04b3a; border-radius:6px; background:#241512; }
+  canvas { display:block; width:100%; height:auto; border-radius:6px; background:#0e141d; }
+  .ctrl { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:8px 0 2px;
+          font-size:12.5px; color:var(--muted); }
+  .ctrl label b { color:var(--ink); font-weight:600; }
+  input[type=range] { width:190px; vertical-align:middle; }
+  .btn { padding:3px 12px; border:1px solid #3a4757; border-radius:5px; background:#1d2632;
+         color:var(--ink); cursor:pointer; font-size:12.5px; }
+  .btn:hover { background:#26313f; }
+  .btn.active { background:#2b6cb0; border-color:#2b6cb0; color:#fff; }
+  .legend { font-size:12px; color:var(--muted); margin-top:6px; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:4px; }
+  .ok { color:#63c98a; } .bad { color:#e0705a; }
+  #formula { margin-top:6px; font-size:13.5px; color:#a8d3ff; }
+  #formula b { color:#ffd47f; }
+  .qa { margin:0 0 6px; } .qa b { color:#a8d3ff; }
+  table.json { border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+  table.json th, table.json td { border:1px solid var(--line); padding:4px 10px; text-align:left; }
+  table.json th { color:#aebdd2; background:#111722; }
+  table.json td.k { color:#ffd47f; font-family:Consolas,monospace; }
+  table.json td.v { color:#bfe3c0; font-family:Consolas,monospace; }
+  #selfcheck { font-size:12px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<h1>SBIRS 方位基准图解 — kNadirRelative 和 scan_start_az_deg 到底什么关系</h1>
+<div class="sub">一句话：<b>scan_azimuth_reference 决定"尺子"（刻度从哪里量起），scan_start_az_deg 是用这把尺子读出来的数。</b>下面三张图依次讲：① 同一个方向、两把尺子的读数对照；② 三颗星怎么"编舞"才能同周期看到同一目标；③ 落到场景 JSON 里就改这几个数。</div>
+<div id="err"></div>
+
+<div class="panel">
+  <h2>① 两把尺子 — 同一根指向线，两种读数（以 A 星为例，星下点绝对方位 154.79°）</h2>
+  <canvas id="rulers" width="880" height="330"></canvas>
+  <div class="ctrl">
+    <label>scan_start_az_deg（相对星下点偏移）<b id="vStart">-15</b>°
+      <input id="sStart" type="range" min="-25" max="25" step="0.5" value="-15"></label>
+    <label><input id="cSector" type="checkbox" checked> 显示扫描扇区 [start, start+30°]</label>
+    <button class="btn" id="presetScene">本次方案（-15 / +15）</button>
+  </div>
+  <div id="formula"></div>
+  <div class="legend">
+    <span style="color:#ffd47f">——</span> 上尺：kEciAbsolute 的刻度（0~360 固定在惯性系上，0° 在很远的地方，图里只画了 130~180 那一小段）
+    　·　<span style="color:#7fd4a8">——</span> 下尺：kNadirRelative 的刻度（0° 就钉在星下点方向上）
+    　·　<span style="color:#63a4ff">｜</span> 竖直虚线 = 你配置的扫描起点（同一物理方向，上下两种读数）
+    　·　<span style="color:#d62728">▲</span> 目标方位（key1 +8.5° / key2 -8.6°，也在下尺上）
+  </div>
+</div>
+
+<div class="panel">
+  <h2>② 三星编舞 — 为什么 B 星必须反向扫（速率 6°/s，视场 12°，扇区 ±15°）</h2>
+  <canvas id="dance" width="880" height="470"></canvas>
+  <div class="ctrl">
+    <button class="btn" id="playDance">⏸ 暂停</button>
+    <button class="btn active" id="modeMirror">镜像：B 反向（本次方案）</button>
+    <button class="btn" id="modeLock">齐步走：B 同向（错误示范）</button>
+    <button class="btn" id="resetDance">↺ 回到周期 1</button>
+  </div>
+  <div class="legend" id="danceReadout"></div>
+  <div class="legend">
+    左右两幅都是"从卫星往下看"的示意：卫星在顶上，地球盘角半径 8.69°，星下点=正下方。
+    key1 在 A 星眼里偏东 <b>+8.5°</b>、在 B 星眼里偏西 <b>-8.6°</b>（互为镜像）。
+    齐步走时两束光同升同降，永远一束在东一束在西 → <b>没有任何周期两星同时压着 key1</b>；
+    镜像时两束光一升一降，<b>相同周期各自压到 key1</b>（绿色竖条），双星交会样本就出在这些周期。
+  </div>
+</div>
+
+<div class="panel">
+  <h2>③ 落到场景 JSON — 三颗星各改哪儿</h2>
+  <table class="json">
+    <tr><th>字段</th><th>A 星</th><th>B 星</th><th>C 星</th><th>白话</th></tr>
+    <tr><td class="k">scan_azimuth_reference</td><td class="v">kNadirRelative（不变）</td><td class="v">同左</td><td class="v">同左</td><td>用哪把尺子：0° 钉在星下点</td></tr>
+    <tr><td class="k">scan_start_az_deg</td><td class="v">0.0 → <b>-15.0</b></td><td class="v">0.0 → <b>+15.0</b></td><td class="v">0.0 → <b>-15.0</b></td><td>起扫点离星下点几度（负=西，正=东）</td></tr>
+    <tr><td class="k">scan_direction</td><td class="v">默认递增（不用写）</td><td class="v">新增 <b>kDecreasingAzimuth</b></td><td class="v">默认递增（不用写）</td><td>头一趟往哪边走；B 反着走才和 A 对得上拍</td></tr>
+    <tr><td class="k">scan_span_deg</td><td class="v">30.0（不变）</td><td class="v">同左</td><td class="v">同左</td><td>巡逻范围；库自动裁成 ±14.69°（贴着地球可见窗）</td></tr>
+    <tr><td class="k">scan_rate_deg_per_sec</td><td class="v">0.0 → <b>6.0</b></td><td class="v">同左</td><td class="v">同左</td><td>光束走多快；0=钉死（旧凝视），6°/s 驻留 2 秒</td></tr>
+    <tr><td class="k">wide_field_fov_az/el_deg</td><td class="v">24.0 → <b>12.0</b></td><td class="v">同左</td><td class="v">同左</td><td>视场缩到"四角不越出地球盘"的最大值（半对角 8.49&lt;8.69）</td></tr>
+  </table>
+  <div class="legend">另有附带小改两处：场景 main.cpp 装载器补 3 行解析 scan_direction 键；场景预期表 .md 把"星下点凝视/80 周期"改成扫描制描述。</div>
+</div>
+
+<div id="selfcheck">画布自查未运行…</div>
+
+<script>
+window.onerror = function (msg) {
+  var e = document.getElementById("err");
+  e.style.display = "block";
+  e.textContent = "页面脚本出错（请把此行截图给助手）：" + msg;
+  return false;
+};
+(function init() {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var rc = $("rulers").getContext("2d"), dc = $("dance").getContext("2d");
+
+  var NADIR_ABS = 154.79;      // A 星星下点的 ECI 绝对方位
+  var KEY1_A = 8.54, KEY2_A = -8.61, KEY1_B = -8.56;   // 各星眼里的目标偏移
+  var RHO = 8.69;              // GEO 处地球盘角半径
+  var SPAN_CFG = 30, CLIP = 14.69;                     // 配置跨度 / 裁后有效跨度(±)
+  var FOV = 12, RATE = 6;                              // 视场宽 / 速率
+  var L = 2 * CLIP;                                    // 有效单程跨度（近似 29.39）
+
+  function foldPhase(travel) {          // 往复折叠：行程 → 相位 ∈ [0,L)
+    var f = travel % (2 * L);
+    return f < L ? f : 2 * L - f;
+  }
+
+  /* ============ ① 两把尺子 ============ */
+  var rstate = { start: -15, showSector: true };
+  var RU = { x0: 70, x1: 850, yTop: 118, yBot: 262, degPerPx: 0, pxPerDeg: 14 };
+  RU.nadirX = (RU.x0 + RU.x1) / 2;
+  function dirToX(absDeg) { return RU.nadirX + (absDeg - NADIR_ABS) * RU.pxPerDeg; }
+
+  function drawRulerBand(y, isAbs) {
+    var W = $("rulers").width;
+    rc.fillStyle = isAbs ? "rgba(255,212,127,0.05)" : "rgba(127,212,168,0.05)";
+    rc.fillRect(RU.x0 - 40, y - 44, (RU.x1 - RU.x0) + 80, 88);
+    // 主轴
+    rc.strokeStyle = isAbs ? "#c7a35a" : "#6aa887"; rc.lineWidth = 1.5;
+    rc.beginPath(); rc.moveTo(RU.x0 - 36, y); rc.lineTo(RU.x1 + 36, y); rc.stroke();
+    // 刻度
+    rc.font = "11px sans-serif"; rc.textAlign = "center";
+    var lo = isAbs ? 132 : -25, hi = isAbs ? 178 : 25, step = isAbs ? 2 : 1, labelEvery = isAbs ? 10 : 5;
+    for (var d = lo; d <= hi; d += step) {
+      var x = dirToX(isAbs ? d : NADIR_ABS + d);
+      if (x < RU.x0 - 36 || x > RU.x1 + 36) continue;
+      var big = (isAbs ? d % labelEvery : Math.abs(d) % labelEvery) === 0;
+      rc.strokeStyle = isAbs ? "#8a7548" : "#54806c"; rc.lineWidth = 1;
+      rc.beginPath(); rc.moveTo(x, y); rc.lineTo(x, y + (big ? 10 : 5)); rc.stroke();
+      if (big) {
+        rc.fillStyle = isAbs ? "#c7a35a" : "#7fd4a8";
+        rc.fillText(isAbs ? d + "°" : (d > 0 ? "+" : "") + d + "°", x, y + 24);
+      }
+    }
+    // 标题
+    rc.textAlign = "left"; rc.fillStyle = isAbs ? "#ffd47f" : "#7fd4a8"; rc.font = "12.5px sans-serif";
+    rc.fillText(isAbs ? "上尺 kEciAbsolute：刻度固定在惯性系上（图中只画 132~178° 一小段，0° 在图外很远）"
+                      : "下尺 kNadirRelative：刻度的 0° 钉在星下点方向上，正=东 负=西", RU.x0 - 34, y - 30);
+    // 星下点刻度（两把尺共有的方向）
+    rc.setLineDash([5, 4]); rc.strokeStyle = "rgba(220,228,238,0.55)"; rc.lineWidth = 1;
+    rc.beginPath(); rc.moveTo(RU.nadirX, y - 18); rc.lineTo(RU.nadirX, y + 34); rc.stroke();
+    rc.setLineDash([]);
+    rc.textAlign = "center"; rc.fillStyle = "#dce4ee"; rc.font = "11.5px sans-serif";
+    rc.fillText(isAbs ? "星下点 " + NADIR_ABS + "°" : "星下点 0°", RU.nadirX, y + 40);
+    // 目标方位（下尺才有意义：偏移读数）
+    if (!isAbs) {
+      [[KEY1_A, "#ff7b6b", "key1 +8.5°"], [KEY2_A, "#ff7b6b", "key2 -8.6°"]].forEach(function (t) {
+        var x = dirToX(NADIR_ABS + t[0]);
+        rc.fillStyle = t[1];
+        rc.beginPath();
+        rc.moveTo(x, y - 8); rc.lineTo(x - 4, y - 16); rc.lineTo(x + 4, y - 16); rc.closePath(); rc.fill();
+        rc.textAlign = x < RU.nadirX ? "right" : "left";
+        rc.fillText(t[2], x + (x < RU.nadirX ? -6 : 6), y - 11);
+        rc.textAlign = "center";
+      });
+    }
+  }
+
+  function drawRulers() {
+    var W = $("rulers").width, H = $("rulers").height;
+    rc.fillStyle = "#0e141d"; rc.fillRect(0, 0, W, H);
+    drawRulerBand(RU.yTop, true);
+    drawRulerBand(RU.yBot, false);
+
+    var startAbs = NADIR_ABS + rstate.start;
+    var xStart = dirToX(startAbs);
+
+    // 扫描扇区阴影 [start, start+30]
+    if (rstate.showSector) {
+      var xEnd = dirToX(startAbs + SPAN_CFG);
+      var xClip = dirToX(NADIR_ABS + CLIP);
+      [[RU.yTop, true], [RU.yBot, false]].forEach(function (band) {
+        var y = band[0];
+        rc.fillStyle = "rgba(255,200,80,0.13)";
+        rc.fillRect(xStart, y - 8, xEnd - xStart, 8);
+        // 裁剪示意：|偏移|>14.69 的部分（越靠外越接近太空）打斜纹
+        rc.save();
+        rc.beginPath(); rc.rect(xStart, y - 8, xEnd - xStart, 8); rc.clip();
+        rc.strokeStyle = "rgba(255,200,80,0.5)"; rc.lineWidth = 1;
+        var from = Math.min(xStart, RU.nadirX - (xClip - RU.nadirX)),
+            to = Math.max(xEnd, RU.nadirX + (xClip - RU.nadirX));
+        for (var x = from; x < to; x += 6) {
+          rc.beginPath(); rc.moveTo(x, y); rc.lineTo(x + 6, y - 8); rc.stroke();
+          rc.beginPath(); rc.moveTo(to - (x - from), y); rc.lineTo(to - (x - from) + 6, y - 8); rc.stroke();
+        }
+        rc.restore();
+        rc.strokeStyle = "rgba(255,200,80,0.75)";
+        rc.strokeRect(xStart, y - 8, xEnd - xStart, 8);
+      });
+    }
+
+    // 同一根指向线（起点），贯穿两把尺
+    rc.setLineDash([6, 4]); rc.strokeStyle = "#63a4ff"; rc.lineWidth = 2;
+    rc.beginPath(); rc.moveTo(xStart, RU.yTop - 44); rc.lineTo(xStart, RU.yBot + 46); rc.stroke();
+    rc.setLineDash([]);
+    rc.textAlign = "center"; rc.font = "12px sans-serif";
+    rc.fillStyle = "#a8d3ff";
+    rc.fillText("上尺读数 " + startAbs.toFixed(1) + "°", xStart, RU.yTop - 50);
+    rc.fillText("下尺读数 " + (rstate.start > 0 ? "+" : "") + rstate.start.toFixed(1) + "°", xStart, RU.yBot + 58);
+    rc.fillStyle = "#63a4ff"; rc.font = "11px sans-serif";
+    rc.fillText("（scan_start_az_deg 要填的数）", xStart, RU.yBot + 74);
+
+    // 终点线（start+30）
+    if (rstate.showSector) {
+      var xEnd2 = dirToX(startAbs + SPAN_CFG);
+      rc.setLineDash([3, 4]); rc.strokeStyle = "rgba(255,200,80,0.6)"; rc.lineWidth = 1;
+      rc.beginPath(); rc.moveTo(xEnd2, RU.yTop - 44); rc.lineTo(xEnd2, RU.yBot + 46); rc.stroke();
+      rc.setLineDash([]);
+      rc.fillStyle = "#ffd47f"; rc.textAlign = "center"; rc.font = "11px sans-serif";
+      rc.fillText("起点+跨度30°（扇区远端）", xEnd2, RU.yBot + 58);
+    }
+
+    // 贯穿两尺的星下点长虚线
+    rc.setLineDash([2, 5]); rc.strokeStyle = "rgba(220,228,238,0.35)";
+    rc.beginPath(); rc.moveTo(RU.nadirX, RU.yTop - 60); rc.lineTo(RU.nadirX, RU.yBot + 66); rc.stroke();
+    rc.setLineDash([]);
+
+    $("formula").innerHTML =
+      "波束方位 = <b>方位基准</b> + <b>scan_start_az_deg</b> + 方向×扫描相位　→　" +
+      "kEciAbsolute：基准=0，你得自己算出 <b>" + startAbs.toFixed(2) + "°</b>（先推星下点 154.79°再手动加偏移，算错无告警）；" +
+      "kNadirRelative：基准=星下点（库每周期拿卫星位置自动算），你只填偏移 <b>" +
+      (rstate.start > 0 ? "+" : "") + rstate.start.toFixed(1) + "°</b>，指向的是同一个方向。";
+  }
+
+  /* ============ ② 三星编舞 ============ */
+  var dstate = { t: 0, playing: true, mirror: true };
+  var DA = { cx: 225, satY: 46, depth: 252, R: 38 };
+  var DB = { cx: 655, satY: 46, depth: 252, R: 38 };
+  var TL = { x0: 60, x1: 860, yA: 356, yB: 380, yHit: 372, h: 18 };
+
+  function beamAz(sat, phase, mirror) {   // 返回该星此刻波束中心的"星下点偏移"
+    if (sat === "A") return -CLIP + phase;
+    return mirror ? CLIP - phase : -CLIP + phase;   // B：镜像=反向；齐步=同向
+  }
+  function inFov(az, target) { return Math.abs(az - target) <= FOV / 2; }
+
+  function drawSatPanel(G, satName, targets, azNow, hit) {
+    var satX = G.cx, cy = G.satY + G.depth;   // 地球盘中心
+    // 扇区 ±15
+    dc.fillStyle = "rgba(255,200,80,0.08)";
+    dc.beginPath(); dc.moveTo(satX, G.satY);
+    dc.lineTo(satX + Math.tan((15) * Math.PI / 180) * (G.depth + 96), G.satY + G.depth + 96);
+    dc.lineTo(satX - Math.tan((15) * Math.PI / 180) * (G.depth + 96), G.satY + G.depth + 96);
+    dc.closePath(); dc.fill();
+    dc.strokeStyle = "rgba(255,200,80,0.4)"; dc.lineWidth = 1; dc.stroke();
+    // ±14.69 裁剪线
+    [-CLIP, CLIP].forEach(function (o) {
+      var x = satX + Math.tan(o * Math.PI / 180) * (G.depth + 96);
+      dc.setLineDash([3, 3]); dc.strokeStyle = "rgba(255,200,80,0.55)";
+      dc.beginPath(); dc.moveTo(satX, G.satY); dc.lineTo(x, G.satY + G.depth + 96); dc.stroke();
+      dc.setLineDash([]);
+    });
+    // 地球盘
+    dc.fillStyle = "#0d1f33"; dc.strokeStyle = "#3d6a8f"; dc.lineWidth = 1.5;
+    dc.beginPath(); dc.arc(satX, cy, G.R, 0, Math.PI * 2); dc.fill(); dc.stroke();
+    dc.fillStyle = "#8fa8c4"; dc.font = "11px sans-serif"; dc.textAlign = "center";
+    dc.fillText("地球盘", satX, cy + 4);
+    // 星下点线
+    dc.setLineDash([4, 4]); dc.strokeStyle = "rgba(220,228,238,0.4)";
+    dc.beginPath(); dc.moveTo(satX, G.satY); dc.lineTo(satX, G.satY + G.depth + 100); dc.stroke();
+    dc.setLineDash([]);
+    dc.fillStyle = "#dce4ee";
+    dc.fillText("星下点 0°", satX, G.satY + G.depth + 112);
+    // 卫星
+    dc.fillStyle = satName === "A" ? "#4f9cf0" : "#f0864f";
+    dc.fillRect(satX - 5, G.satY - 5, 10, 10);
+    dc.fillStyle = "#dce4ee"; dc.textAlign = "left"; dc.font = "12.5px sans-serif";
+    dc.fillText(satName + " 星" + (satName === "B" ? (dstate.mirror ? "（反向扫）" : "（同向扫·错误示范）") : ""), satX + 12, G.satY + 4);
+    // 目标
+    targets.forEach(function (t) {
+      var tx = satX + Math.tan(t.az * Math.PI / 180) * G.depth,
+          ty = cy - Math.sin(t.az * Math.PI / 180) * G.depth * 0.12;
+      var on = inFov(azNow, t.az);
+      dc.fillStyle = on ? "#ffd47f" : "#d62728";
+      dc.beginPath(); dc.arc(tx, ty, on ? 5.5 : 4, 0, Math.PI * 2); dc.fill();
+      if (on) {
+        dc.strokeStyle = "rgba(255,212,127,0.6)"; dc.lineWidth = 2;
+        dc.beginPath(); dc.arc(tx, ty, 9, 0, Math.PI * 2); dc.stroke();
+      }
+      dc.fillStyle = on ? "#ffd47f" : "#e8928a"; dc.textAlign = "center"; dc.font = "11px sans-serif";
+      dc.fillText(t.name + (on ? " 检出✓" : ""), tx, ty - 10);
+    });
+    // 波束（±6° 光楔）
+    var half = FOV / 2;
+    dc.fillStyle = hit ? "rgba(99,164,255,0.30)" : "rgba(99,164,255,0.16)";
+    dc.beginPath(); dc.moveTo(satX, G.satY);
+    dc.lineTo(satX + Math.tan((azNow + half) * Math.PI / 180) * (G.depth + 60), G.satY + G.depth + 60);
+    dc.lineTo(satX + Math.tan((azNow - half) * Math.PI / 180) * (G.depth + 60), G.satY + G.depth + 60);
+    dc.closePath(); dc.fill();
+    dc.strokeStyle = hit ? "#8fc0ff" : "#63a4ff"; dc.lineWidth = 1.2; dc.stroke();
+    dc.strokeStyle = hit ? "#cfe4ff" : "rgba(99,164,255,0.7)"; dc.lineWidth = 1.5;
+    dc.beginPath(); dc.moveTo(satX, G.satY);
+    dc.lineTo(satX + Math.tan(azNow * Math.PI / 180) * (G.depth + 60), G.satY + G.depth + 60); dc.stroke();
+    // 底部方位刻度条
+    var ay = G.satY + G.depth + 128, halfPx = 150, px = halfPx / 15;
+    dc.strokeStyle = "#33475e"; dc.lineWidth = 1;
+    dc.beginPath(); dc.moveTo(satX - halfPx, ay); dc.lineTo(satX + halfPx, ay); dc.stroke();
+    dc.font = "10.5px sans-serif"; dc.textAlign = "center"; dc.fillStyle = "#54677e";
+    for (var o = -15; o <= 15; o += 5) {
+      var x = satX + o * px;
+      dc.beginPath(); dc.moveTo(x, ay); dc.lineTo(x, ay + 5); dc.stroke();
+      dc.fillText(o === 0 ? "0" : (o > 0 ? "+" : "") + o, x, ay + 17);
+    }
+    dc.fillStyle = "#a8d3ff"; dc.font = "11.5px sans-serif";
+    dc.fillText("此刻波束偏移 " + (azNow > 0 ? "+" : "") + azNow.toFixed(1) + "°", satX, ay + 34);
+  }
+
+  function drawTimeline() {
+    var cyc = Math.floor(dstate.t);
+    // A / B 各 80 周期的命中条
+    var hits = 0;
+    dc.font = "11px sans-serif"; dc.textAlign = "right";
+    dc.fillStyle = "#8393a8";
+    dc.fillText("A 星", TL.x0 - 8, TL.yA + 13);
+    dc.fillText("B 星", TL.x0 - 8, TL.yB + 13);
+    dc.textAlign = "left";
+    dc.fillStyle = "#54677e";
+    dc.fillText("周期 1 → 80（每格 1 秒）", TL.x0, TL.yA - 8);
+    for (var n = 0; n < 80; n++) {
+      var x = TL.x0 + (TL.x1 - TL.x0) * n / 80;
+      var w = (TL.x1 - TL.x0) / 80 - 0.8;
+      var phase = foldPhase(RATE * n);
+      var azA = beamAz("A", phase, dstate.mirror);
+      var azB = beamAz("B", phase, dstate.mirror);
+      var hA = inFov(azA, KEY1_A), hB = inFov(azB, KEY1_B);
+      if (hA && hB) hits++;
+      dc.fillStyle = hA ? "rgba(79,156,240,0.85)" : "rgba(79,156,240,0.15)";
+      dc.fillRect(x, TL.yA, w, TL.h);
+      dc.fillStyle = hB ? (dstate.mirror ? "rgba(240,134,79,0.85)" : "rgba(240,134,79,0.85)") : "rgba(240,134,79,0.15)";
+      dc.fillRect(x, TL.yB, w, TL.h);
+      if (hA && hB) {
+        dc.fillStyle = "rgba(99,201,138,0.9)";
+        dc.fillRect(x, TL.yA - 4, w, (TL.yB + TL.h) - (TL.yA - 4) + 4);
+        // 重画两条（盖在绿底上，保持可见）
+        dc.fillStyle = "rgba(79,156,240,0.95)"; dc.fillRect(x, TL.yA, w, TL.h);
+        dc.fillStyle = "rgba(240,134,79,0.95)"; dc.fillRect(x, TL.yB, w, TL.h);
+      }
+    }
+    // 游标
+    var xc = TL.x0 + (TL.x1 - TL.x0) * Math.min(cyc, 79) / 80;
+    dc.strokeStyle = "#dce4ee"; dc.lineWidth = 1.5;
+    dc.beginPath(); dc.moveTo(xc, TL.yA - 12); dc.lineTo(xc, TL.yB + TL.h + 8); dc.stroke();
+    dc.fillStyle = "#dce4ee"; dc.textAlign = "center";
+    dc.fillText("周期 " + (cyc + 1), xc, TL.yA - 17);
+    return hits;
+  }
+
+  function drawDance() {
+    var W = $("dance").width, H = $("dance").height;
+    dc.fillStyle = "#0e141d"; dc.fillRect(0, 0, W, H);
+    var phase = foldPhase(RATE * dstate.t);
+    var azA = beamAz("A", phase, dstate.mirror);
+    var azB = beamAz("B", phase, dstate.mirror);
+    drawSatPanel(DA, "A", [{ name: "key1", az: KEY1_A }, { name: "key2", az: KEY2_A }], azA, inFov(azA, KEY1_A));
+    drawSatPanel(DB, "B", [{ name: "key1", az: KEY1_B }], azB, inFov(azB, KEY1_B));
+    var hits = drawTimeline();
+    dc.fillStyle = "#8393a8"; dc.textAlign = "left"; dc.font = "11px sans-serif";
+    dc.fillText("（B 星看 key2 被地球挡住，不画）", DB.cx - 70, DA.satY + DA.depth + 168);
+    $("danceReadout").innerHTML = dstate.mirror
+      ? '镜像编舞：<span class="ok">80 周期里 ' + hits + ' 个周期 A、B 同时压着 key1</span> → 双星交会样本 ≈' + hits + '/80（扫描制下约四成，属正常）。'
+      : '齐步编舞：<span class="bad">80 周期里 ' + hits + ' 个周期两星同时看到 key1</span> → 双星交会几乎采不到样，这就是 B 必须反向的原因。';
+  }
+
+  /* ============ 自查 ============ */
+  function selfCheck() {
+    var bg = [14, 20, 29], bad = [];
+    [["rulers", rc], ["dance", dc]].forEach(function (p) {
+      var cv = $(p[0]), ctx = p[1];
+      try {
+        var W = cv.width, H = cv.height;
+        var img = ctx.getImageData(0, 0, W, H).data;
+        var inkCount = 0, edgeInk = 0;
+        for (var y = 0; y < H; y += 3) for (var x = 0; x < W; x += 3) {
+          var i = (y * W + x) * 4;
+          var d = Math.abs(img[i] - bg[0]) + Math.abs(img[i + 1] - bg[1]) + Math.abs(img[i + 2] - bg[2]);
+          if (d > 30) {
+            inkCount++;
+            if (x < 2 || x > W - 3 || y < 2 || y > H - 3) edgeInk++;
+          }
+        }
+        if (inkCount < 200) bad.push(p[0] + " 几乎无墨迹");
+        if (edgeInk > 0) bad.push(p[0] + " 有 " + edgeInk + " 个采样点出血到画布最外沿");
+      } catch (e) { bad.push(p[0] + " 读取失败:" + e.message); }
+    });
+    $("selfcheck").innerHTML = bad.length
+      ? '<span class="bad">画布自查发现问题：' + bad.join("；") + "</span>"
+      : '<span class="ok">画布自查 ✓（两张画布均有墨迹，且没有内容出血到画布边界外）</span>';
+  }
+
+  /* ============ 控件 ============ */
+  $("sStart").addEventListener("input", function () {
+    rstate.start = parseFloat(this.value);
+    $("vStart").textContent = rstate.start;
+    drawRulers();
+  });
+  $("cSector").addEventListener("change", function () { rstate.showSector = this.checked; drawRulers(); });
+  $("presetScene").addEventListener("click", function () {
+    rstate.start = -15; $("sStart").value = -15; $("vStart").textContent = -15;
+    drawRulers();
+  });
+  $("playDance").addEventListener("click", function () {
+    dstate.playing = !dstate.playing;
+    this.textContent = dstate.playing ? "⏸ 暂停" : "▶ 播放";
+    this.classList.toggle("active", !dstate.playing);
+  });
+  $("modeMirror").addEventListener("click", function () {
+    dstate.mirror = true; this.classList.add("active"); $("modeLock").classList.remove("active"); drawDance();
+  });
+  $("modeLock").addEventListener("click", function () {
+    dstate.mirror = false; this.classList.add("active"); $("modeMirror").classList.remove("active"); drawDance();
+  });
+  $("resetDance").addEventListener("click", function () { dstate.t = 0; drawDance(); });
+
+  /* ============ 主循环（rAF + 兜底） ============ */
+  var last = 0;
+  function tick(now) {
+    var dt = Math.min(0.1, (now - last) / 1000 || 0.016);
+    last = now;
+    if (dstate.playing) dstate.t = (dstate.t + dt) % 80;
+    drawDance();
+    requestAnimationFrame(tick);
+  }
+  drawRulers();
+  drawDance();
+  requestAnimationFrame(tick);
+  setInterval(function () { drawRulers(); }, 1000);           // 静态画布低频兜底重绘
+  setInterval(function () { if (!last || performance.now() - last > 700) drawDance(); }, 350);
+  setTimeout(selfCheck, 1600);
+})();
+</script>
+</body>
+</html>

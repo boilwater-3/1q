@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>SBIRS 宽窄视场搜索图解 — 宽场找，窄场盯</title>
+<style>
+  :root { --bg:#10151c; --panel:#171e27; --ink:#dce4ee; --muted:#8393a8; --line:#242e3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:14px 18px; background:var(--bg); color:var(--ink);
+         font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif; }
+  h1 { font-size:17px; margin:0 0 4px; }
+  h2 { font-size:14px; margin:0 0 8px; color:#aebdd2; }
+  .sub { color:var(--muted); font-size:12.5px; margin-bottom:10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:12px 14px; margin-bottom:14px; }
+  #err { display:none; color:#ff8a70; font-size:13px; padding:8px 12px; margin-bottom:12px;
+         border:1px solid #a04b3a; border-radius:6px; background:#241512; }
+  canvas { display:block; width:100%; height:auto; border-radius:6px; background:#0e141d; }
+  .ctrl { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:8px 0 2px;
+          font-size:12.5px; color:var(--muted); }
+  .ctrl label b { color:var(--ink); font-weight:600; }
+  input[type=range] { width:170px; vertical-align:middle; }
+  input[type=checkbox] { vertical-align:middle; }
+  .btn { padding:3px 12px; border:1px solid #3a4757; border-radius:5px; background:#1d2632;
+         color:var(--ink); cursor:pointer; font-size:12.5px; }
+  .btn:hover { background:#26313f; }
+  .btn.active { background:#2b6cb0; border-color:#2b6cb0; color:#fff; }
+  .legend { font-size:12px; color:var(--muted); margin-top:6px; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:4px; }
+  .readout { margin-top:8px; font-size:13px; color:#a8d3ff; }
+  .ok { color:#63c98a; } .bad { color:#e0705a; }
+  .qa { margin:0 0 6px; } .qa b { color:#a8d3ff; }
+  .ledger { margin:4px 0 0; padding-left:0; list-style:none; font-size:13px; }
+  .ledger li { margin:5px 0; padding-left:14px; position:relative; color:#c3cedd; }
+  .ledger li::before { content:"—"; position:absolute; left:0; color:#5b6b80; }
+</style>
+</head>
+<body>
+<h1>SBIRS 宽窄视场搜索图解 — 宽场找，窄场盯</h1>
+<div class="sub">四张图讲完一件事：一把 24° 的大刷子怎么在天上左右扫出目标，再把 8° 的小窗口递过去盯死它。
+数字对齐 sbirs_triple_sat_fix_messages 场景（GEO 高度、24×24 宽场、8×8 窄场、跨度 30° 被裁到 20.69°、速率 6°/s、10 帧/秒）。</div>
+<div id="err"></div>
+
+<div class="panel">
+  <h2>一句话总纲</h2>
+  <p class="qa"><b>宽场（WFOV）＝广角镜头：只负责"发现"，顺便给窄场递话（cue）。</b>
+  看得宽所以看得粗——它报出来的角度只配当线索，不配进定位账本。</p>
+  <p class="qa"><b>窄场（NFOV）＝长焦镜头：负责"盯死"，出高精度数据。</b>
+  面积只有宽场的 1/9（场景 8×8 对 24×24；库默认模板窄场 2×2，更是 1/144），
+  所以它从不自己找目标，全靠宽场引导。跟踪、双星定位用的<b>只有窄场数据</b>（2026-08-31 裁定）。</p>
+  <p class="qa">真实的 SBIRS GEO 星就是"扫描传感器 + 凝视传感器"两个载荷：扫描的全球普查，凝视的高精盯防——本仓库这套是对它的简化复刻。</p>
+</div>
+
+<div class="panel">
+  <h2>图一 · 卫星眼中的天球（正视图）— 一把刷子怎么扫</h2>
+  <canvas id="cSky" width="880" height="430"></canvas>
+  <div class="ctrl">
+    <button class="btn" id="playSky">⏸ 暂停</button>
+    <button class="btn active" id="fov24">宽场 24×24（场景值）</button>
+    <button class="btn" id="fov87">宽场 8.7×8.7（失败试验）</button>
+    <label>跨度 <b id="vSpan">30</b>° <input id="sSpan" type="range" min="6" max="40" value="30"></label>
+    <label>起点偏移 <b id="vStart">0</b>° <input id="sStart" type="range" min="-30" max="30" step="1" value="0"></label>
+    <label>速率
+      <select id="sRateS">
+        <option value="0">0（凝视）</option>
+        <option value="6" selected>6 °/s（场景）</option>
+        <option value="12">12 °/s</option>
+      </select>
+    </label>
+    <button class="btn" id="resetSky">重置目标</button>
+  </div>
+  <div class="legend">
+    <span class="sw" style="background:rgba(255,200,80,.18);border:1px solid rgba(255,200,80,.5)"></span>已扫过的带（黄）
+    　<span class="sw" style="background:rgba(99,164,255,.25);border:1px solid #63a4ff"></span>宽场瞬时视场（蓝）
+    　<span class="sw" style="background:rgba(255,180,84,.22);border:1px solid #ffb454"></span>窄场 8×8（橙）
+    　<span class="sw" style="background:#0d1f33;border:1px solid #3d6a8f;border-radius:50%"></span>地球盘（半径 8.70°）
+  </div>
+  <div class="readout" id="skyReadout"></div>
+</div>
+
+<div class="panel">
+  <h2>图二 · 双星定位为什么断 — 上下差，左右扫救不了</h2>
+  <canvas id="cDual" width="880" height="380"></canvas>
+  <div class="ctrl">
+    <label>伴星对目标的<b>俯仰偏移</b> <b id="vElOff">7.0</b>°
+      <input id="sElOff" type="range" min="0" max="14" step="0.5" value="7"></label>
+    <button class="btn active" id="dFov24">伴星宽场 24°（半角 12°）</button>
+    <button class="btn" id="dFov87">伴星宽场 8.7°（半角 4.35°，试验值）</button>
+  </div>
+  <div class="readout" id="dualReadout"></div>
+  <p class="qa" style="margin-top:8px">双星定位的原理是"两颗星同时看一个目标，两条视线交会才能算位置"——两只眼睛才能定位，一只只能报方向。
+  拖动滑块可以看到：偏移一旦超出半角，伴星宽场<b>从不检出 → 从不引导 → 窄场从不跟踪</b>，链条在第一环就断了，后面全灭。</p>
+</div>
+
+<div class="panel">
+  <h2>图三 · 引导链账本 — 从宽场一眼到窄场盯死的七步</h2>
+  <canvas id="cChain" width="880" height="300"></canvas>
+  <div class="ctrl">
+    <button class="btn" id="playChain">⏸ 暂停</button>
+    <span style="color:var(--muted)">七步自动走一遍再循环；当前步的账本写在下面</span>
+  </div>
+  <div class="readout" id="chainReadout"></div>
+</div>
+
+<div class="panel">
+  <h2>图四 · 窄场为什么准 — 每周期 10 帧融合，随机误差按 σ/√N 缩</h2>
+  <canvas id="cFusion" width="880" height="340"></canvas>
+  <div class="ctrl">
+    <label>帧数 N = <b id="vN">10</b> <input id="sN" type="range" min="1" max="40" value="10"></label>
+    <button class="btn" id="resample">重新采样</button>
+    <label><input type="checkbox" id="cbBias"> 叠加系统性偏差（折射/动态滞后）</label>
+  </div>
+  <div class="readout" id="fusionReadout"></div>
+  <p class="qa" style="margin-top:8px"><b>平均只能消"随机抖动"，消不了"系统性偏移"。</b>
+  就像枪的准星歪了：打多少发平均起来还是偏一边。勾选偏差开关，把 N 拉到 40——点阵缩小了，均值却纹丝不动地偏着。</p>
+</div>
+
+<div class="panel">
+  <h2>账本 · 8.7° 窄视场试验复盘（2026-08-31，三轮全否定）</h2>
+  <p class="qa">动机：地球盘角半径正好 8.70°（GEO 35,779 km 看地球）。想把宽场从 24° 缩到 8.7°，
+  用"小视场扫描"代替"大视场一次盖满"，换来更细的搜索精度。三轮配置：</p>
+  <ul class="ledger">
+    <li>第一轮：8.7×8.7 + 跨度 16°；第二轮：+ 跨度 30°；第三轮：+ 俯仰栅格 −9°~+9°（上下分行扫）。</li>
+    <li>反直觉的结果：<b>地面覆盖考核反而是过的</b>（四角落地判据 60/240 全落）——断的不是覆盖。</li>
+    <li>真正的死因：缩视场后<b>每颗目标只剩一颗星能看见</b>。伴星对目标的俯仰偏移在 4.35°~12° 之间，
+        而窄半角只有 4.35°；方位扫描救不了俯仰（左右扫 ≠ 上下盖）。</li>
+    <li>后果：伴星宽场从不检出 → 从不引导 → 窄场从不跟踪 → 双星配对 0/80 → SMOKE FAILED。</li>
+    <li>第三轮的俯仰栅格真实步进了，但每行停留时间占比太低（占空稀疏）× 两星各扫各的（无星间协同）
+        × 配对窗只有 1 个周期——"两星恰好同时看同一目标"一次也没凑上。</li>
+    <li>结论：已回退 24°。窄视场路线若重启，需"双轴光栅 + 星间扫描相位协同（或放宽配对窗）"专项立项——
+        中段目标 5 km/s，配对窗放几十秒，交会误差就是百公里级，不是改一个配置的事。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>账本 · "双星只用窄场"的实测收益（同日裁定，已进代码）</h2>
+  <ul class="ledger">
+    <li>修复前：宽场粗测角混进双星定位，74 行定位误差均值 72.7 m、最大 213 m。</li>
+    <li>修复后：精度评估聚合处剔除宽场阶段记录，74 行全部窄场，均值 43.7 m（−40%）、最大 113 m。</li>
+    <li>窄场逐帧噪声 1e-4°（≈17.5 μrad），10 帧融合后 ≈5.5 μrad，撑住"测角误差 ≤3 μrad"指标带余量。</li>
+  </ul>
+</div>
+
+<script>
+window.onerror = function (msg) {
+  var e = document.getElementById("err");
+  e.style.display = "block";
+  e.textContent = "页面脚本出错（请把此行截图给助手）：" + msg;
+  window.__scriptError = String(msg);
+  return false;
+};
+(function init() {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var DISK = 8.70;              // GEO 看地球盘角半径
+  function rad(d) { return d * Math.PI / 180; }
+  function sgn2(d) { return (d >= 0 ? "+" : "−") + Math.abs(d).toFixed(2); }
+  function gauss() {            // Box-Muller 标准正态
+    var u = Math.random() || 1e-9, v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  /* ============ 图一：天球正视图 ============ */
+  var skyCv = $("cSky"), kc = skyCv.getContext("2d");
+  var S = { cx: 430, cy: 235, s: 9.6,          // 原点=星下点方向，px/deg
+            fov: 24, start: 0, span: 30, rate: 6, phase: 0, legForward: true,
+            playing: true, lastT: 0, targets: [], nfov: [] };
+  function skyX(az) { return S.cx + az * S.s; }
+  function skyY(el) { return S.cy - el * S.s; }
+  function effLen() {   // 与库一致：星下点基准只裁远端，相位原点=配置起点
+    var w = DISK + S.fov / 2;
+    var cl = Math.max(S.start, -w), ch = Math.min(S.start + S.span, w);
+    if (ch > cl && (ch - cl) < S.span - 1e-4) return { len: ch - cl, clipped: true, outside: false };
+    return { len: S.span, clipped: false, outside: ch <= cl };
+  }
+  function resetTargets() {
+    S.targets = [
+      { az: -4, el: 2.0, vaz: 0.55, vel: 0.05, name: "①", hits: 0, lock: -1, seen: false },
+      { az: 5,  el: -3.5, vaz: -0.40, vel: -0.04, name: "②", hits: 0, lock: -1, seen: false },
+      { az: 9,  el: 5.5,  vaz: 0.35, vel: 0.03, name: "③", hits: 0, lock: -1, seen: false }
+    ];
+    S.nfov = [];
+  }
+  resetTargets();
+
+  var hatch = (function makeHatch() {           // 盲区红斜纹
+    var c = document.createElement("canvas"); c.width = c.height = 8;
+    var x = c.getContext("2d");
+    x.strokeStyle = "rgba(224,112,90,0.5)"; x.lineWidth = 1.2;
+    x.beginPath(); x.moveTo(-2, 10); x.lineTo(10, -2); x.stroke();
+    return kc.createPattern(c, "repeat");
+  })();
+
+  function drawSky() {
+    var W = skyCv.width, H = skyCv.height;
+    kc.fillStyle = "#0e141d"; kc.fillRect(0, 0, W, H);
+    var half = S.fov / 2, ef = effLen(), ce = ef.len, c = S.start + S.phase;
+
+    // 标题行（画布内左上）
+    kc.fillStyle = "#a8d3ff"; kc.font = "12.5px sans-serif";
+    kc.fillText(S.rate === 0 ? "速率 0 = 凝视：视场钉死不动（GEO 星下点凝视就是基准 0 + 速率 0）"
+                             : "宽场视场中心在 [" + sgn2(S.start) + "°, " + sgn2(S.start + ce) + "°] 内往复扫（到边反向，不跳回起点）", 22, 24);
+    kc.fillStyle = "#8393a8"; kc.font = "11px sans-serif";
+    kc.fillText("横轴＝方位（相对星下点）　纵轴＝俯仰（el=0 ≈ 盘中心，GEO 几乎在赤道面上）", 22, 42);
+
+    // 俯仰刻度（左侧）
+    kc.strokeStyle = "#2a3a4d"; kc.lineWidth = 1;
+    [-12, -8.7, -4.35, 4.35, 8.7, 12].forEach(function (el) {
+      var y = skyY(el);
+      kc.beginPath(); kc.moveTo(skyX(-34), y); kc.lineTo(skyX(44), y); kc.stroke();
+      kc.fillStyle = "#54677e"; kc.font = "10.5px sans-serif";
+      kc.fillText((el > 0 ? "+" : "") + el + "°", 24, y - 3);
+    });
+    // 地球盘（名称在图例里；画布内只在盘下方标半径）
+    kc.fillStyle = "#0d1f33"; kc.strokeStyle = "#3d6a8f"; kc.lineWidth = 1.5;
+    kc.beginPath(); kc.arc(S.cx, S.cy, DISK * S.s, 0, Math.PI * 2); kc.fill(); kc.stroke();
+    kc.fillStyle = "#8fa8c4"; kc.font = "11.5px sans-serif";
+    kc.fillText("半径 8.70°", S.cx - 34, S.cy + DISK * S.s + 16);
+
+    // 单行盲区（俯仰向盖不住盘的部分）
+    if (half < DISK) {
+      kc.save();
+      kc.beginPath(); kc.arc(S.cx, S.cy, DISK * S.s, 0, Math.PI * 2); kc.clip();
+      kc.fillStyle = hatch;
+      kc.fillRect(skyX(-DISK), skyY(DISK), 2 * DISK * S.s, (DISK - half) * S.s);   // 上盲区
+      kc.fillRect(skyX(-DISK), skyY(-half), 2 * DISK * S.s, (DISK - half) * S.s); // 下盲区
+      kc.restore();
+      kc.fillStyle = "rgba(224,112,90,0.85)"; kc.font = "11.5px sans-serif";
+      kc.fillText("单行盲区：俯仰 " + half.toFixed(2) + "~8.70° 盖不住（红纹）", skyX(-DISK) + 4, skyY(DISK) - 8);
+    }
+
+    // 有用窗 ±(ρ+半宽) 与配置跨度
+    var wdeg = DISK + half;
+    [[-wdeg, "有用窗 −" + wdeg.toFixed(2) + "°"], [wdeg, "有用窗 +" + wdeg.toFixed(2) + "°"]].forEach(function (t) {
+      kc.strokeStyle = "rgba(255,200,80,0.75)"; kc.setLineDash([6, 5]); kc.lineWidth = 1.2;
+      kc.beginPath(); kc.moveTo(skyX(t[0]), skyY(13)); kc.lineTo(skyX(t[0]), skyY(-13)); kc.stroke();
+      kc.setLineDash([]);
+      kc.fillStyle = "#ffd47f"; kc.font = "11px sans-serif";
+      kc.fillText(t[1], skyX(t[0]) - 52, skyY(13) + 14);
+    });
+    if (ef.clipped) {   // 配置跨度被裁的部分（只裁远端，与库一致）
+      kc.strokeStyle = "#5b6b80"; kc.setLineDash([3, 4]);
+      kc.beginPath(); kc.moveTo(skyX(S.start + ce), skyY(13)); kc.lineTo(skyX(S.start + S.span), skyY(13)); kc.stroke();
+      kc.setLineDash([]);
+      kc.fillStyle = "#8393a8"; kc.font = "11px sans-serif";
+      kc.fillText("配置 " + S.span + "° → 裁到 " + ce.toFixed(2) + "°（窗外=对空扫）",
+                  Math.min(skyX(S.start + ce) - 40, 640), skyY(13) + 30);
+    }
+
+    // 已扫过的带（从起点到当前中心）
+    kc.fillStyle = "rgba(255,200,80,0.09)";
+    kc.fillRect(skyX(Math.min(S.start, c)), skyY(half), Math.abs(c - S.start) * S.s, 2 * half * S.s);
+
+    // 宽场矩形（刷子）
+    kc.fillStyle = "rgba(99,164,255,0.16)"; kc.strokeStyle = "#63a4ff"; kc.lineWidth = 1.6;
+    kc.fillRect(skyX(c - half), skyY(half), S.fov * S.s, S.fov * S.s);
+    kc.strokeRect(skyX(c - half), skyY(half), S.fov * S.s, S.fov * S.s);
+    kc.strokeStyle = "rgba(99,164,255,0.5)"; kc.setLineDash([4, 4]);
+    kc.beginPath(); kc.moveTo(skyX(c), skyY(half)); kc.lineTo(skyX(c), skyY(-half)); kc.stroke();
+    kc.setLineDash([]);
+    kc.fillStyle = "#a8d3ff"; kc.font = "12px sans-serif";
+    kc.fillText("宽场 " + S.fov + "×" + S.fov + "　中心 " + (c >= 0 ? "+" : "") + c.toFixed(1) + "°",
+                Math.min(Math.max(skyX(c) - 60, 90), 690), skyY(half) - 8);
+
+    // 目标 + 窄场
+    S.targets.forEach(function (t) {
+      var insideW = Math.abs(t.az - c) <= half && Math.abs(t.el) <= half;
+      var col = t.lock >= 0 ? "#ffb454" : (t.seen ? "#63c98a" : "#9aa7b8");
+      kc.fillStyle = col;
+      kc.beginPath(); kc.arc(skyX(t.az), skyY(t.el), 5, 0, Math.PI * 2); kc.fill();
+      kc.fillStyle = col; kc.font = "12px sans-serif";
+      kc.fillText(t.name, skyX(t.az) + 8, skyY(t.el) - 6);
+    });
+    S.nfov.forEach(function (n) {
+      var t = S.targets[n.t];
+      kc.fillStyle = "rgba(255,180,84,0.14)"; kc.strokeStyle = "#ffb454"; kc.lineWidth = 1.6;
+      var h4 = 4 * S.s;
+      kc.fillRect(skyX(n.az) - h4, skyY(n.el) - h4, 2 * h4, 2 * h4);
+      kc.strokeStyle = "#ffb454"; kc.lineWidth = 1.4;
+      kc.strokeRect(skyX(n.az) - h4, skyY(n.el) - h4, 2 * h4, 2 * h4);
+      if (n.state === "lock") {
+        kc.fillStyle = "#ffb454"; kc.font = "11px sans-serif";
+        kc.fillText("锁定·融合中", skyX(n.az) + h4 + 6, skyY(n.el) + 4);
+      }
+    });
+
+    // 底部读数条
+    var dwell = S.rate > 0 ? S.fov / S.rate : Infinity;
+    var locks = S.nfov.length;
+    var blind = half < DISK;
+    var t3 = S.targets[2];
+    var t3msg = t3.lock >= 0 ? "目标③已锁定" :
+        (blind && Math.abs(t3.el) > half ? "目标③掉在盲区，从未检出" :
+         (locks >= 2 ? "目标③检出但排队等通道" : "目标③等待检出"));
+    $("skyReadout").innerHTML =
+      "指向 <b>" + sgn2(c) + "°</b>（" + (S.legForward ? "去程" : "回程") + "）" +
+      "　·　有效跨度 " + sgn2(S.start) + " → <b>" + sgn2(S.start + ce) + "°</b>" +
+      (ef.clipped ? "（配置 " + S.span + "° 被裁）" : "") +
+      (ef.outside ? "　·　<span class='bad'>扇区整段在窗外：全程对空天扫</span>" : "") +
+      "　·　驻留 = 视场/速率 = <b>" + (S.rate > 0 ? dwell.toFixed(1) + "s" : "∞（凝视）") + "</b>（≈" + (S.rate > 0 ? Math.round(dwell * 10) : "∞") + " 帧 @10Hz）" +
+      "　·　窄场锁定 <b>" + locks + "/2</b>　·　<span class='" + (t3msg.indexOf("盲区") >= 0 ? "bad" : "ok") + "'>" + t3msg + "</span>";
+  }
+
+  function stepSky(dt) {
+    var half = S.fov / 2, ce = effLen().len;
+    if (S.playing && S.rate > 0 && ce > 0) {       // 往复：到边反向
+      var p = S.phase + (S.legForward ? 1 : -1) * S.rate * dt;
+      if (p >= ce) { p = ce - (p - ce); S.legForward = false; }
+      if (p <= 0) { p = -p; S.legForward = true; }
+      S.phase = Math.max(0, Math.min(ce, p));
+    }
+    S.targets.forEach(function (t, i) {            // 目标在盘内缓慢漂移
+      if (!S.playing) return;
+      t.az += t.vaz * dt; t.el += t.vel * dt;
+      if (Math.abs(t.az) > 7.5) t.vaz = -t.vaz;
+      if (Math.abs(t.el) > 6.5) t.vel = -t.vel;
+      var insideW = Math.abs(t.az - S.phase) <= half && Math.abs(t.el) <= half;
+      if (insideW && S.rate >= 0) {
+        t.hits++; t.seen = true;                   // 连续命中（场景 N=1，命中即调度）
+        if (t.lock < 0 && S.nfov.length < 2) {
+          t.lock = S.nfov.length;
+          S.nfov.push({ t: i, az: S.phase, el: 0, state: "slew" });
+        }
+      }
+    });
+    S.nfov.forEach(function (n) {                  // 窄场转头 ≤30°/s，到位即锁定跟随
+      var t = S.targets[n.t];
+      if (!S.playing && n.state === "lock") return;
+      var dAz = t.az - n.az, dEl = t.el - n.el;
+      var dist = Math.sqrt(dAz * dAz + dEl * dEl);
+      var step = 30 * dt;
+      if (dist <= step || dist < 1e-6) { n.az = t.az; n.el = t.el; n.state = "lock"; }
+      else { n.az += dAz / dist * step; n.el += dEl / dist * step; }
+    });
+  }
+
+  $("playSky").addEventListener("click", function () {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? "⏸ 暂停" : "▶ 播放";
+    this.classList.toggle("active", !S.playing);
+  });
+  function setFov(v, btn) {
+    S.fov = v;
+    $("fov24").classList.toggle("active", v === 24);
+    $("fov87").classList.toggle("active", v === 8.7);
+    S.nfov = []; S.targets.forEach(function (t) { t.lock = -1; t.seen = false; t.hits = 0; });
+    S.phase = 0; S.legForward = true;
+  }
+  $("fov24").addEventListener("click", function () { setFov(24); });
+  $("fov87").addEventListener("click", function () { setFov(8.7); });
+  $("sSpan").addEventListener("input", function () {
+    S.span = parseFloat(this.value); $("vSpan").textContent = Math.round(S.span);
+    S.phase = Math.min(S.phase, effLen().len);
+  });
+  $("sStart").addEventListener("input", function () {
+    S.start = parseFloat(this.value); $("vStart").textContent = Math.round(S.start);
+    S.phase = 0; S.legForward = true;
+  });
+  $("sRateS").addEventListener("change", function () { S.rate = parseFloat(this.value); });
+  $("resetSky").addEventListener("click", function () { resetTargets(); });
+
+  /* ============ 图二：双星俯仰断链 ============ */
+  var dualCv = $("cDual"), dc = dualCv.getContext("2d");
+  var D = { elOff: 7, half: 12 };
+  function drawDual() {
+    var W = dualCv.width, H = dualCv.height;
+    dc.fillStyle = "#0e141d"; dc.fillRect(0, 0, W, H);
+    function disk(cx, title, verdictOk, note) {
+      var cy = 205, s = 10.5, r = DISK * s;
+      dc.fillStyle = "#aebdd2"; dc.font = "13px sans-serif";
+      dc.fillText(title, cx - 60, 34);
+      // 俯仰刻度
+      dc.strokeStyle = "#2a3a4d";
+      [[-8.7, ""], [-4.35, ""], [4.35, ""], [8.7, ""]].forEach(function (tk) {
+        dc.beginPath(); dc.moveTo(cx - 150, cy - tk[0] * s); dc.lineTo(cx + 150, cy - tk[0] * s); dc.stroke();
+      });
+      // 地球盘 + 上下差标注
+      dc.fillStyle = "#0d1f33"; dc.strokeStyle = "#3d6a8f"; dc.lineWidth = 1.5;
+      dc.beginPath(); dc.arc(cx, cy, r, 0, Math.PI * 2); dc.fill(); dc.stroke();
+      dc.fillStyle = "#54677e"; dc.font = "10.5px sans-serif";
+      dc.fillText("+8.70", cx - r - 38, cy - 8.7 * s + 4);
+      dc.fillText("−8.70", cx - r - 38, cy + 8.7 * s + 4);
+      dc.fillText("el=0", cx - r - 30, cy + 4);
+      // 宽场单行带（俯仰 ±half，横跨盘）
+      dc.fillStyle = "rgba(99,164,255,0.14)"; dc.strokeStyle = "#63a4ff"; dc.lineWidth = 1.4;
+      dc.fillRect(cx - r, cy - D.half * s, 2 * r, 2 * D.half * s);
+      dc.strokeRect(cx - r, cy - D.half * s, 2 * r, 2 * D.half * s);
+      return { cx: cx, cy: cy, s: s };
+    }
+    var a = disk(215, "主星 A 视角", true);
+    var b = disk(665, "伴星 B 视角", D.elOff <= D.half);
+
+    // 主星：目标在带内 → 全链通
+    var tax = a.cx - 25, tay = a.cy - 15;
+    dc.fillStyle = "#63c98a";
+    dc.beginPath(); dc.arc(tax, tay, 5, 0, Math.PI * 2); dc.fill();
+    dc.fillStyle = "#63c98a"; dc.font = "12px sans-serif";
+    dc.fillText("目标", tax + 8, tay - 6);
+    dc.fillText("✓ 在带内 → 检出 → 引导 → 窄场 → 数据", a.cx - 150, 348);
+
+    // 伴星：目标俯仰偏移 elOff（方位差不多，上下差决定生死）
+    var bx = b.cx + 20, by = b.cy - D.elOff * b.s;
+    var inBand = D.elOff <= D.half;
+    dc.fillStyle = inBand ? "#63c98a" : "#e0705a";
+    dc.beginPath(); dc.arc(bx, by, 5, 0, Math.PI * 2); dc.fill();
+    dc.fillStyle = inBand ? "#63c98a" : "#e0705a"; dc.font = "12px sans-serif";
+    dc.fillText("同一目标", bx + 8, by - 6);
+    // 偏移标尺：目标→引出线→竖直尺寸线（两端端帽），分别对齐 el=0 与目标高度
+    var rx = bx - 30;
+    dc.strokeStyle = "rgba(224,112,90,0.45)"; dc.setLineDash([3, 3]); dc.lineWidth = 1;
+    dc.beginPath(); dc.moveTo(bx - 7, by); dc.lineTo(rx, by); dc.stroke();   // 目标引出线
+    dc.beginPath(); dc.moveTo(bx - 7, b.cy); dc.lineTo(rx, b.cy); dc.stroke(); // el=0 引出线
+    dc.setLineDash([]);
+    dc.strokeStyle = "rgba(224,112,90,0.9)"; dc.lineWidth = 1.4;
+    dc.beginPath(); dc.moveTo(rx, b.cy); dc.lineTo(rx, by); dc.stroke();     // 竖直尺寸线
+    dc.beginPath(); dc.moveTo(rx - 5, b.cy); dc.lineTo(rx + 5, b.cy); dc.stroke(); // 端帽
+    dc.beginPath(); dc.moveTo(rx - 5, by); dc.lineTo(rx + 5, by); dc.stroke();
+    dc.fillStyle = "#e8928a"; dc.font = "11px sans-serif";
+    dc.fillText("俯仰偏移 " + D.elOff.toFixed(1) + "°", rx - 100, (b.cy + by) / 2 + 4);
+    // 方位往复扫箭头（只在带上扫）
+    var ay0 = b.cy - D.half * b.s - 16;
+    dc.strokeStyle = "#ffd47f"; dc.lineWidth = 1.6;
+    dc.beginPath(); dc.moveTo(b.cx - 70, ay0); dc.lineTo(b.cx + 70, ay0); dc.stroke();
+    [[b.cx - 70, -1], [b.cx + 70, 1]].forEach(function (ar) {
+      dc.beginPath(); dc.moveTo(ar[0], ay0);
+      dc.lineTo(ar[0] + ar[1] * 9, ay0 - 4); dc.lineTo(ar[0] + ar[1] * 9, ay0 + 4);
+      dc.closePath(); dc.fillStyle = "#ffd47f"; dc.fill();
+    });
+    dc.fillStyle = "#ffd47f"; dc.font = "11px sans-serif";
+    dc.fillText("扫描＝左右往复", b.cx - 46, ay0 - 8);
+    dc.fillStyle = inBand ? "#63c98a" : "#e0705a"; dc.font = "12px sans-serif";
+    dc.fillText(inBand ? "✓ 偏移 ≤ 半角 " + D.half.toFixed(2) + "°：能检出"
+                       : "✗ 偏移 " + D.elOff.toFixed(1) + "° > 半角 " + D.half.toFixed(2) + "°：左右扫救不了上下差",
+                b.cx - 190, 348);
+
+    $("dualReadout").innerHTML =
+      "伴星半角 <b>" + D.half.toFixed(2) + "°</b>，目标俯仰偏移 <b>" + D.elOff.toFixed(1) + "°</b> → " +
+      (inBand ? '<span class="ok">双星都能看 → 配对成立，定位有数据</span>'
+              : '<span class="bad">伴星从不检出 → 双星配对 0/80 → SMOKE FAILED（试验实测：偏移全在 4.35°~12°）</span>');
+  }
+  $("sElOff").addEventListener("input", function () {
+    D.elOff = parseFloat(this.value); $("vElOff").textContent = D.elOff.toFixed(1); drawDual();
+  });
+  $("dFov24").addEventListener("click", function () {
+    D.half = 12; this.classList.add("active"); $("dFov87").classList.remove("active"); drawDual();
+  });
+  $("dFov87").addEventListener("click", function () {
+    D.half = 4.35; this.classList.add("active"); $("dFov24").classList.remove("active"); drawDual();
+  });
+
+  /* ============ 图三：引导链状态机 ============ */
+  var chainCv = $("cChain"), cc = chainCv.getContext("2d");
+  var CH = { playing: true, t: 0, boxes: [
+    { x: 40,  y: 60,  w: 180, h: 58, t: "① 宽场四门", d: "几何（方位·俯仰都在视场内）+ 距离门 + SNR 门（库默认 ≥4）。一个周期判一次。" },
+    { x: 250, y: 60,  w: 180, h: 58, t: "② 连续命中", d: "连续 N 周期全过门才放行（默认 N=1）。丢了就要从头再攒。" },
+    { x: 460, y: 60,  w: 180, h: 58, t: "③ 调度排序", d: "多目标抢窄场：SNR 高 → 距离近 → ID 小；通道 ≤2（场景值），满了排队。" },
+    { x: 670, y: 60,  w: 180, h: 58, t: "④ cue 转头", d: "宽场递话有延迟；窄场按『延迟后的预测位置』转过去，最高 30°/s。" },
+    { x: 670, y: 200, w: 180, h: 58, t: "⑤ 窄场捕获", d: "目标真值落进窄场（场景 8×8）+ SNR ≥6（库默认，更严防虚警）。" },
+    { x: 460, y: 200, w: 180, h: 58, t: "⑥ 融合跟踪", d: "每周期 10 帧独立量测融合，随机误差 σ/√N 缩小，输出高精数据。" },
+    { x: 250, y: 200, w: 180, h: 58, t: "⑦ 丢锁放手", d: "NIS 连续超限，或几何/SNR 连续 2 周期失败 → 放手，回①重新攒命中。" }
+  ] };
+  function chainCenter(i) { var b = CH.boxes[i]; return [b.x + b.w / 2, b.y + b.h / 2]; }
+  function drawChain() {
+    var W = chainCv.width, H = chainCv.height;
+    cc.fillStyle = "#0e141d"; cc.fillRect(0, 0, W, H);
+    var seg = Math.floor(CH.t / 1.15) % 7;         // 当前步
+    var k = (CH.t % 1.15) / 1.15;                  // 步内进度
+    // 连线：1→2→3→4 ↓ 5→6→7 ↖ 回 1
+    cc.strokeStyle = "#3a4757"; cc.lineWidth = 1.6;
+    var pts = [];
+    for (var i = 0; i < 7; i++) pts.push(chainCenter(i));
+    for (var j = 0; j < 3; j++) { cc.beginPath(); cc.moveTo(pts[j][0] + 90, pts[j][1]); cc.lineTo(pts[j + 1][0] - 90, pts[j + 1][1]); cc.stroke(); }
+    cc.beginPath(); cc.moveTo(pts[3][0], pts[3][1] + 29); cc.lineTo(pts[4][0], pts[4][1] - 29); cc.stroke();   // ④↓⑤
+    for (var j2 = 4; j2 < 6; j2++) { cc.beginPath(); cc.moveTo(pts[j2][0] - 90, pts[j2][1]); cc.lineTo(pts[j2 + 1][0] + 90, pts[j2 + 1][1]); cc.stroke(); }
+    cc.strokeStyle = "rgba(224,112,90,0.75)"; cc.setLineDash([5, 4]);                                            // ⑦↖① 丢锁回路
+    cc.beginPath(); cc.moveTo(pts[6][0] - 90, pts[6][1] - 6);
+    cc.quadraticCurveTo(120, 160, pts[0][0], pts[0][1] + 32); cc.stroke(); cc.setLineDash([]);
+    cc.fillStyle = "#e0705a"; cc.font = "11.5px sans-serif";
+    cc.fillText("丢锁回宽场", 96, 158);
+
+    // 盒子
+    CH.boxes.forEach(function (b, i) {
+      var on = i === seg;
+      cc.fillStyle = on ? "rgba(99,164,255,0.22)" : "#16202c";
+      cc.strokeStyle = on ? "#63a4ff" : "#33475e"; cc.lineWidth = on ? 2 : 1.3;
+      roundRect(cc, b.x, b.y, b.w, b.h, 8); cc.fill(); cc.stroke();
+      cc.fillStyle = on ? "#dce4ee" : "#aebdd2"; cc.font = "13px sans-serif";
+      cc.fillText(b.t, b.x + 14, b.y + 26);
+      cc.fillStyle = "#8393a8"; cc.font = "10.5px sans-serif";
+      var sub = ["几何+距离+SNR", "默认 N=1", "通道 ≤2", "≤30°/s", "8×8 + SNR≥6", "10 帧 σ/√N", "回① 重新攒"][i];
+      cc.fillText(sub, b.x + 14, b.y + 42);
+    });
+    // 棋子（沿盒间直线走）
+    var from = pts[seg], to = pts[(seg + 1) % 7];
+    var px, py;
+    if (seg === 6) { px = from[0] + (120 - from[0]) * k; py = from[1] + (160 - from[1]) * k * 0.6 - (to[1] - from[1]) * k * 0.4; }
+    else { px = from[0] + (to[0] - from[0]) * k; py = from[1] + (to[1] - from[1]) * k; }
+    cc.fillStyle = "#ffd47f";
+    cc.beginPath(); cc.arc(px, py, 7, 0, Math.PI * 2); cc.fill();
+    $("chainReadout").innerHTML = "<b>" + CH.boxes[seg].t + "</b>：" + CH.boxes[seg].d;
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  $("playChain").addEventListener("click", function () {
+    CH.playing = !CH.playing;
+    this.textContent = CH.playing ? "⏸ 暂停" : "▶ 播放";
+    this.classList.toggle("active", !CH.playing);
+  });
+
+  /* ============ 图四：多帧融合 σ/√N ============ */
+  var fusCv = $("cFusion"), fc = fusCv.getContext("2d");
+  var F = { N: 10, bias: false, pts: [] };
+  var SIG0 = 17.5;                                 // 单帧 σ，μrad
+  var PXU = 3.2;                                   // μrad → px
+  function resample() {
+    F.pts = [];
+    for (var i = 0; i < 40; i++) {
+      F.pts.push([gauss() * SIG0 + (F.bias ? 9 : 0), gauss() * SIG0 + (F.bias ? -5 : 0)]);
+    }
+  }
+  resample();
+  function drawFusion() {
+    var W = fusCv.width, H = fusCv.height;
+    fc.fillStyle = "#0e141d"; fc.fillRect(0, 0, W, H);
+    // ---- 左：散点图 ----
+    var cx = 240, cy = 180;
+    fc.strokeStyle = "#2a3a4d";
+    fc.beginPath(); fc.moveTo(cx - 200, cy); fc.lineTo(cx + 200, cy); fc.stroke();
+    fc.beginPath(); fc.moveTo(cx, cy - 130); fc.lineTo(cx, cy + 130); fc.stroke();
+    fc.fillStyle = "#54677e"; fc.font = "11px sans-serif";
+    fc.fillText("放大看：1 μrad ≈ " + PXU + " px（真实单帧 σ=17.5 μrad）", 26, 26);
+    // 单帧 σ 参考圈
+    fc.strokeStyle = "rgba(147,167,184,0.35)"; fc.setLineDash([4, 4]);
+    fc.beginPath(); fc.arc(cx, cy, SIG0 * PXU, 0, Math.PI * 2); fc.stroke();
+    fc.setLineDash([]);
+    fc.fillStyle = "#8393a8"; fc.font = "11px sans-serif";
+    fc.fillText("单帧 σ 圈", cx + SIG0 * PXU * 0.72, cy - SIG0 * PXU * 0.72 - 6);
+    // 帧散点（只画前 N 个）
+    var mx = 0, my = 0;
+    for (var i = 0; i < F.N; i++) {
+      var p = F.pts[i];
+      mx += p[0]; my += p[1];
+      fc.fillStyle = "rgba(99,164,255,0.55)";
+      fc.beginPath(); fc.arc(cx + p[0] * PXU, cy - p[1] * PXU, 3, 0, Math.PI * 2); fc.fill();
+    }
+    mx /= F.N; my /= F.N;
+    // 真值十字
+    fc.strokeStyle = "#63c98a"; fc.lineWidth = 1.6;
+    fc.beginPath(); fc.moveTo(cx - 9, cy); fc.lineTo(cx + 9, cy); fc.stroke();
+    fc.beginPath(); fc.moveTo(cx, cy - 9); fc.lineTo(cx, cy + 9); fc.stroke();
+    fc.fillStyle = "#63c98a"; fc.font = "11.5px sans-serif";
+    fc.fillText("真值", cx + 12, cy + 16);
+    // 融合均值（菱形）
+    var fx = cx + mx * PXU, fy = cy - my * PXU;
+    fc.fillStyle = "#ffb454";
+    fc.beginPath(); fc.moveTo(fx, fy - 7); fc.lineTo(fx + 7, fy); fc.lineTo(fx, fy + 7); fc.lineTo(fx - 7, fy);
+    fc.closePath(); fc.fill();
+    fc.fillStyle = "#ffb454"; fc.font = "11.5px sans-serif";
+    fc.fillText(F.N + " 帧均值", fx + 12, fy - 10);
+    // 融合 σ 圈
+    var sf = SIG0 / Math.sqrt(F.N);
+    fc.strokeStyle = "#ffb454"; fc.setLineDash([4, 3]);
+    fc.beginPath(); fc.arc(cx, cy, sf * PXU, 0, Math.PI * 2); fc.stroke();
+    fc.setLineDash([]);
+
+    // ---- 右：σ(N) 曲线 ----
+    var gx0 = 545, gx1 = 850, gy0 = 44, gy1 = 296;
+    var nMax = 40, sMax = 18;
+    function gpx(n) { return gx0 + (n - 1) / (nMax - 1) * (gx1 - gx0); }
+    function gpy(s) { return gy1 - s / sMax * (gy1 - gy0); }
+    fc.strokeStyle = "#2a3a4d";
+    fc.beginPath(); fc.moveTo(gx0, gy1); fc.lineTo(gx1, gy1); fc.stroke();
+    fc.beginPath(); fc.moveTo(gx0, gy0); fc.lineTo(gx0, gy1); fc.stroke();
+    fc.fillStyle = "#54677e"; fc.font = "10.5px sans-serif";
+    fc.fillText("帧数 N", gx1 - 36, gy1 + 16);
+    [1, 10, 20, 30, 40].forEach(function (nv) {
+      fc.strokeStyle = "#22303f";
+      fc.beginPath(); fc.moveTo(gpx(nv), gy1); fc.lineTo(gpx(nv), gy1 + 4); fc.stroke();
+      fc.fillStyle = "#54677e";
+      fc.fillText(String(nv), gpx(nv) - (nv === 1 ? 2 : 6), gy1 + 16);
+    });
+    fc.fillText("μrad", gx0 - 34, gy0 + 6);
+    [18, 12, 6, 3].forEach(function (sv) {
+      fc.strokeStyle = sv === 3 ? "rgba(99,201,138,0.55)" : "#22303f";
+      fc.setLineDash(sv === 3 ? [5, 4] : []);
+      fc.beginPath(); fc.moveTo(gx0, gpy(sv)); fc.lineTo(gx1, gpy(sv)); fc.stroke();
+      fc.setLineDash([]);
+      fc.fillStyle = sv === 3 ? "#63c98a" : "#54677e";
+      fc.fillText(String(sv), gx0 - 26, gpy(sv) + 4);
+    });
+    fc.fillStyle = "#63c98a";
+    fc.fillText("验收指标 ≤3 μrad（融合后口径）", gx0 + 40, gpy(3) - 6);
+    fc.strokeStyle = "#a8d3ff"; fc.lineWidth = 1.8;
+    fc.beginPath();
+    for (var n = 1; n <= nMax; n++) {
+      var x = gpx(n), y = gpy(SIG0 / Math.sqrt(n));
+      if (n === 1) fc.moveTo(x, y); else fc.lineTo(x, y);
+    }
+    fc.stroke();
+    var cxN = gpx(F.N), cyN = gpy(sf);
+    fc.fillStyle = "#ffb454";
+    fc.beginPath(); fc.arc(cxN, cyN, 5, 0, Math.PI * 2); fc.fill();
+    fc.fillStyle = "#ffb454"; fc.font = "11.5px sans-serif";
+    fc.fillText("N=" + F.N + " → " + sf.toFixed(1) + " μrad", Math.min(cxN + 8, 770), cyN - 8);
+    fc.fillStyle = "#8393a8"; fc.font = "11px sans-serif";
+    fc.fillText("场景每周期 N = 10Hz × 1s = 10 帧 → 5.5 μrad", gx0 + 36, gy1 - 12);
+
+    $("fusionReadout").innerHTML =
+      "单帧 σ = <b>17.5 μrad</b>（fov_sigma 1e-4°）　·　N = <b>" + F.N + "</b> 帧融合 → σ/√N = <b>" +
+      sf.toFixed(1) + " μrad</b>" +
+      (F.bias ? '　·　<span class="bad">系统性偏差开着：均值永远偏 ≈10.3 μrad，N 再大也不缩</span>'
+              : "　·　随机抖动按 1/√N 缩；<span class='bad'>折射/滞后这类系统偏差不缩</span>");
+  }
+  $("sN").addEventListener("input", function () {
+    F.N = parseInt(this.value, 10); $("vN").textContent = F.N; drawFusion();
+  });
+  $("resample").addEventListener("click", function () { resample(); drawFusion(); });
+  $("cbBias").addEventListener("change", function () { F.bias = this.checked; resample(); drawFusion(); });
+
+  /* ============ 公共动画（rAF + 兜底 ticker） ============ */
+  function tick(now) {
+    var dt = Math.min(0.1, (now - S.lastT) / 1000 || 0.016);
+    S.lastT = now;
+    if (S.playing) stepSky(dt);
+    if (CH.playing) CH.t += dt;
+    drawSky(); drawDual(); drawChain(); drawFusion();
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  setInterval(function () {
+    if (performance.now() - S.lastT > 700) {        // rAF 停摆兜底
+      S.lastT = performance.now();
+      drawSky(); drawDual(); drawChain(); drawFusion();
+    }
+  }, 350);
+
+  /* 单图模式：#fig=N 时只显示第 N 张卡片（用于逐张导出/截图） */
+  if (location.hash.indexOf("#fig=") === 0) {
+    var n = parseInt(location.hash.slice(5), 10) || 0;
+    document.querySelectorAll("h1, .sub").forEach(function (el) { el.style.display = "none"; });
+    document.querySelectorAll(".panel").forEach(function (card, i) {
+      if (i !== n - 1) card.style.display = "none";
+    });
+  }
+})();
+</script>
+</body>
+</html>

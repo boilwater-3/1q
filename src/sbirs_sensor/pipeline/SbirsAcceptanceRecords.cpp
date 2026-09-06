@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iterator>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,15 @@ DetectabilityPending() {
                   std::map<std::uint64_t, std::map<std::uint32_t, DetectabilityEntry>>>
       pending;
   return pending;
+}
+
+// 待定表为进程级共享（双星定位依赖两星写同一张表会合），组件层当前串行步进；
+// 此锁防集成方同进程多线程跑多个会话时并发增删坏表。锁内落盘会经
+// WriteAcceptanceLog 取日志通道自身的锁（该路径无回调、不重入本文件），
+// 锁序恒为 待定表锁→日志锁，无反向路径。
+std::mutex& DetectabilityPendingMutex() {
+  static std::mutex mutex;
+  return mutex;
 }
 
 double HashUnit(std::uint32_t cycle, std::uint32_t salt) {
@@ -296,6 +306,8 @@ bool TryDualLosMidpointEcef(const DetectabilityEntry& a, const DetectabilityEntr
 }
 
 // 成行：目标ID [+位置LLA（仅双星定位）] + 逐星（相对卫星ID/斜距/量测角）+ 红外可探测。
+// 仅限持有 DetectabilityPendingMutex() 的调用点使用：entries 引用自待定表，
+// 落盘期间表不得被增删。
 void EmitDetectabilityLine(std::uint64_t target_id,
                            const std::map<std::uint32_t, DetectabilityEntry>& entries) {
   if (entries.empty()) {
@@ -340,6 +352,7 @@ void WriteSbirsTargetDetectability(std::uint32_t satellite_entity_id, float sim_
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
+  const std::lock_guard<std::mutex> pending_lock(DetectabilityPendingMutex());
   auto& pending = DetectabilityPending();
   // 旧周期条目已不可能再等来第二颗星：先顺延落盘。
   for (auto it = pending.begin(); it != pending.end() && it->first < cycle;) {
@@ -374,6 +387,7 @@ void FlushSbirsDetectabilityPending() {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
+  const std::lock_guard<std::mutex> pending_lock(DetectabilityPendingMutex());
   auto& pending = DetectabilityPending();
   for (auto& cycle_entry : pending) {
     for (auto& target_entry : cycle_entry.second) {
@@ -444,10 +458,10 @@ void WriteSbirsOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   }
   written = true;
   // 评审 2026-08-26 条22（方案B）：库内不做墙钟计时，真实初始化耗时在示例层
-  // integration_events.log 的同名验收项（模块=SBIRS）。场景数/总仿真周期由示例层
+  // integration_events.log 的同名验收项（模块=OPIR）。场景数/总仿真周期由示例层
   // 结束时回写（第54项），库内不再写占位行。
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间性能测试",
-                        "见integration_events.log（模块=SBIRS）");
+                        "见integration_events.log（模块=OPIR）");
 }
 
 void WriteSbirsCycleRunCount(float sim_time_sec, std::uint32_t cycle) {

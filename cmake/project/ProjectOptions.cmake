@@ -92,12 +92,12 @@ endif()
 
 # 分层验收文件日志（默认关闭；宏与派生计算一并剪除）。开启后各层写自己的
 # 验收文件（四段同一行），不进 1q_library.log，也不跨层抄示意行。
-option(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG
-    "Write sbirs_acceptance.log (IR detect / WFOV-NFOV / lifecycle / IR angle error)" OFF)
-if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
-    message(STATUS "sbirs acceptance log: ENABLED (sbirs_acceptance.log)")
+option(ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG
+    "Write opir_acceptance.log (IR detect / WFOV-NFOV / lifecycle / IR angle error)" OFF)
+if(ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG)
+    message(STATUS "opir acceptance log: ENABLED (opir_acceptance.log)")
 else()
-    message(STATUS "sbirs acceptance log: disabled (set -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON to enable)")
+    message(STATUS "opir acceptance log: disabled (set -DONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=ON to enable)")
 endif()
 
 option(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG

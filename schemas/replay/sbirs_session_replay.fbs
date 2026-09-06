@@ -69,7 +69,8 @@ table SbirsPointingDisturbanceConfig {
 }
 
 table SbirsSchedulerConfig {
-  max_concurrent_nfov_locks: int32;
+  // v4（2026-09-02）：max_concurrent_nfov_locks 已删除（单镜筒化——等效多镜筒的
+  // 虚构能力；可保持精跟条数由分时轮转物理涌现）。
   wide_to_narrow_required_consecutive_hits: int32 = 1;
 }
 
@@ -130,7 +131,9 @@ table SbirsSessionConfig {
 
 root_type SbirsSessionConfig;
 // v2：与 sbirs_replay.fbs 同步版本化（scan_start_az 语义改 ECI 方位 [0,360)）。
-file_identifier "SBI2";
+// v4（2026-09-02）：调度器表删 max_concurrent_nfov_locks（单镜筒化）——中段字段
+// 变更，与 v3 载荷互不兼容；标识符随共享常量升 SBI4（见 SbirsReplayFlatbufferCodec.h）。
+file_identifier "SBI4";
 
 table SbirsRuntimeConfigPatch {
   has_mission: bool;

@@ -62,14 +62,9 @@ std::vector<TargetEcefState> MakeTargetStates(
     state.radiant_intensity_w_per_sr = entry.radiant_intensity_w_per_sr;
     state.emitter_center_frequency_hz = entry.emitter_center_frequency_hz;
     state.has_rir_features = entry.has_rir_features;
-    state.has_rir_polarization = entry.has_rir_polarization;
     state.rir_rcs_dbsm = entry.rir_rcs_dbsm;
-    state.has_rir_pol_cross = entry.has_rir_pol_cross;
-    state.has_rir_pol_phase = entry.has_rir_pol_phase;
-    state.rir_pol_ch1_dbsm = entry.rir_pol_ch1_dbsm;
-    state.rir_pol_ch2_dbsm = entry.rir_pol_ch2_dbsm;
-    state.rir_pol_cross_dbsm = entry.rir_pol_cross_dbsm;
-    state.rir_pol_phase_vv_deg = entry.rir_pol_phase_vv_deg;
+    state.rir_pol_dictionary = entry.rir_pol_dictionary;
+    state.rir_pol_window_deg = entry.rir_pol_window_deg;
     state.rir_truth_model = entry.rir_truth_model;
     state.rir_scatterers = entry.rir_scatterers;
     state.maneuvers = entry.maneuvers;
@@ -178,13 +173,11 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
     target.rcs = state.rcs;
     target.target_swerling_type = rir::RirSwerlingType::kSwerling0;
     if (state.has_rir_features) {
-      // 特征真值铺样（仿集成测试配方）：视角网格方位 ±10°/步 5°、俯仰 5°~30°/步
-      // 10°，RCS 恒为脚本标量；散射器逐条透传。方位 ±5°（跨度 10°）时特征库
-      // 带视角覆盖门槛的模板（如 BALLISTIC_EXAMPLE_B 要求 15°）的 RCS 维被判
-      // 无效、best 落到无门槛干扰模板上贴门漂移（2026-08-31 rir-tracking-realism
-      // 修订 2 定位）；扩到 ±10°（跨度 20°）覆盖门槛。极化仅在场景显式给值时
-      // 铺样——缺省 0 dBsm 不是"未提供"（合法物理值），无值硬铺会把错误极化维
-      // 带进识别匹配（实测拖低综合分致长时间无法确认）。
+      // 特征真值铺样：RCS 视角网格方位 ±10°/步 5°、俯仰 5°~30°/步 10°
+      // （跨度 20° 覆盖特征库视角门槛，2026-08-31 修订 2 定位）；散射器逐条
+      // 透传。极化走架构 B 窗口（2026-09-03 冻结）：全量字典开机一次性载入
+      // 在此，每周期只按当前视线角裁 ±窗口的行进周期输入，不再整表重交、
+      // 也不复制占位值——标准差因此有真实含义。
       for (float az = -10.0f; az <= 10.0f; az += 5.0f) {
         for (float el = 5.0f; el <= 30.0f; el += 10.0f) {
           rir::RirAspectRcsSample aspect;
@@ -192,17 +185,25 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
           aspect.aspect_el_deg = el;
           aspect.rcs_dbsm = static_cast<float>(state.rir_rcs_dbsm);
           target.aspect_rcs_samples.push_back(aspect);
-          if (state.has_rir_polarization) {
-            rir::RirPolarizationRcsSample polarization;
-            polarization.aspect_az_deg = az;
-            polarization.aspect_el_deg = el;
-            polarization.channel_1_rcs_dbsm = static_cast<float>(state.rir_pol_ch1_dbsm);
-            polarization.channel_2_rcs_dbsm = static_cast<float>(state.rir_pol_ch2_dbsm);
-            polarization.has_cross_pol = state.has_rir_pol_cross;
-            polarization.cross_rcs_dbsm = static_cast<float>(state.rir_pol_cross_dbsm);
-            polarization.has_phase_vv = state.has_rir_pol_phase;
-            polarization.phase_vv_rel_hh_deg = static_cast<float>(state.rir_pol_phase_vv_deg);
-            target.polarization_rcs_samples.push_back(polarization);
+        }
+      }
+      if (!state.rir_pol_dictionary.empty()) {
+        // 视线角与库内 ComputeLookAngles 同口径：az=atan2(北,东)、
+        // el=atan2(天,水平距离)（站点 ENU，雷达位于原点）。
+        const double east = static_cast<double>(enu.position_enu_m.east_m);
+        const double north = static_cast<double>(enu.position_enu_m.north_m);
+        const double up = static_cast<double>(enu.position_enu_m.up_m);
+        const double look_az_deg =
+            std::atan2(north, east) * 180.0 / 3.14159265358979323846;
+        const double look_el_deg =
+            std::atan2(up, std::sqrt(east * east + north * north)) * 180.0 /
+            3.14159265358979323846;
+        const double window_deg = state.rir_pol_window_deg;
+        for (const rir::RirPolSMatrixSample& row : state.rir_pol_dictionary) {
+          const double delta_az = std::fabs(static_cast<double>(row.aspect_az_deg) - look_az_deg);
+          const double delta_el = std::fabs(static_cast<double>(row.aspect_el_deg) - look_el_deg);
+          if (delta_az <= window_deg && delta_el <= window_deg) {
+            target.polarization_samples.push_back(row);
           }
         }
       }

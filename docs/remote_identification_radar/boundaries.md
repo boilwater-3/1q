@@ -60,8 +60,8 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
   检测）界定为 **RIR 自持检测链**（检测 → LAPJV 全局最优关联 → CV KF/IMM
   双路径滤波 → 池化生命周期 → 内部航迹 → 识别积累）；检测量测仅内部消费，
-  不对外发布点迹；战术决策/ECCM/对外点迹仍为非目标。逐项归属与阶段切分见
-  `docs/review/rir_signal_chain_capability_boundary_2026-08-15.md`。
+  不对外发布点迹；战术决策/ECCM/对外点迹仍为非目标。逐项归属与阶段切分的
+  能力边界审计（2026-08-15）已删档，见 git 历史。
 - **replay 会话配置**：阶段 1 只提供周期结果记录编解码（`rir_replay.fbs`）；
   会话配置 replay 与 trace 事件流列为阶段 2 评估项。
 
@@ -87,8 +87,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 7. 阶段 3 / 3b common 化：LAPJV / 雷达方程 / 天线方向图 / 植被传播损耗 / 大气胶水 /
    RCS 混合 / 检测单元账本 / 统计级 CFAR 编排 / 冻结波束 / 航迹池·关联核·生命周期
    计数已收敛到 `src/common/`，RIR 保留薄适配层，不引入 AR 头。发射/接收「可提取
-   核心」与 6 dB 真值回退门留模块侧（见
-   `docs/review/ar_rir_shared_capability_extract_audit_2026-08-21.md`）。
+   核心」与 6 dB 真值回退门留模块侧（提取审计 2026-08-21 已删档，见 git 历史）。
 
 ## 非目标（否决项）
 
@@ -259,9 +258,15 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 物理口径**不逐项对账**（阶段 2-S 后本模块已有探测链，F1/F2 仍只服务于识别
 维度有效性与质量）：
 
-1. **F1 双通道极化**：场景目标 `polarization_rcs_samples`（dBsm）经同一雷达方程
-   与 SNR 噪声底派生；通道定义（H/V）由数据库固定（meta `polarization_channels`）。
-   可选 `cross_rcs_dbsm` / `phase_vv_rel_hh_deg` 仅验收旁路消费（须 `has_*`），不进提取器。
+1. **F1 极化散射**（2026-09-03 四类判决重构）：场景目标 `polarization_samples`
+   携带**四路复数窗口行**（`RirPolSMatrixSample`：HH/HV/VH/VV 幅度 dBsm+相位 deg，
+   当前视线角 ±5° 裁剪；全量字典由场景层开机一次性载入，架构 B——类型手册归库、
+   个体字典归场景）。识别链两路消费：双通道能量特征（HH/VV 幅度，经同一雷达方程
+   与 SNR 噪声底派生，通道定义由数据库 meta `polarization_channels` 固定）与
+   **五量统计特征**（|det S|/Span/去极化/Graves ψτ ×(均值, 标准差)；ψ 为圆统计，
+   周期 180°）。细分类型（弹头/重诱饵/轻诱饵/碎片）判据未冻结，恒 kUnknown 不判决。
+   - **证据**：[evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]::RirPolarizationStatsExtractor
+   - **证据**：[evidence: tests/unit/remote_identification_radar/rir_polarization_stats_test.cpp]::RirPolarizationStatsTest
 2. **F2 距离像相干叠加**：仅消费场景侧 `range_rcs_scatterers` 真值列表；散射中心级
    峰值判定为效能级简化（粗距离单元下不合并峰标识，仅投影能量）。
 
@@ -286,8 +291,8 @@ CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控。开启后�
 不属于三写、不进公开输出/replay。交付日志一条原文指标一行，`[验收项：]` 用原文
 指标名；内容只写数值或 `无`/`暂无`，不标注派生/未进/占位。公式与旁路边界见
 `docs/review/rir_mti_mtd_acceptance_sidecar_freeze_2026-08-22.md`、
-`docs/review/rir_polarization_l2_acceptance_sidecar_freeze_2026-08-22.md`、
-`docs/review/rir_acceptance_remaining_metrics_sidecar_freeze_2026-08-22.md`。
+`docs/review/rir_polarization_l2_acceptance_sidecar_freeze_2026-08-22.md`；
+剩余指标冻结记录已删档，见 git 历史。
 缺交叉极化或 HH–VV 相位、无链路干扰通道写 `无`，不回退对角实矩阵、不均分冒充。
 
 ## 设计变更规则

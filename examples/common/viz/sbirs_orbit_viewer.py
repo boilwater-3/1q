@@ -332,14 +332,41 @@ def build_data(log_dir):
             continue
         e["targetRel"] = wrap_deg360(math.degrees(az_geo) - nadir)
 
+    # cross-cue 握手推导（窄带模式可视化，2026-09-01）：目标 T 首次被星 B 在周期 c
+    # 检出，且另一星 A 在 c-1 已检出 T → 记一次递话 A→B（星→地→星固定滞后一周期）。
+    first_detect = {}
+    for e in los:
+        if e["status"] == "detected":
+            key2 = (e["sid"], e["tid"])
+            if key2 not in first_detect or e["c"] < first_detect[key2]:
+                first_detect[key2] = e["c"]
+    first_by_tid = {}
+    for (sid, tid), c0 in first_detect.items():
+        first_by_tid.setdefault(tid, {})[sid] = c0
+    cues = []
+    for tid, per_sat in first_by_tid.items():
+        for sid_b, c_b in per_sat.items():
+            for sid_a, c_a in per_sat.items():
+                if sid_a != sid_b and c_a == c_b - 1:
+                    cues.append({"c": c_b, "from": sid_a, "to": sid_b, "tid": tid})
+    cues.sort(key=lambda q: (q["c"], q["tid"], q["from"]))
+
+    # 模式自动识别（2026-09-01 双模式查看器）：宽场角 < 地球盘角径×2 → 窄带模式。
+    sat_r_m = norm(sats[0]["p"]) * 1000.0
+    disk_half_deg = math.degrees(math.asin(min(1.0, EARTH_RADIUS_M / sat_r_m)))
+    max_wfov = max(s["wfovAz"] for s in sats)
+    view_mode = "narrow" if max_wfov < 2.0 * disk_half_deg - 0.5 else "wide"
+
     meta = {
         "cycles": cycles,
         "gmst": gmst,
         "earthR": EARTH_RADIUS_M / 1000.0,
         "evalPair": [sats[0]["sid"], sats[1]["sid"]],
+        "diskHalfDeg": disk_half_deg,
+        "viewModeAuto": view_mode,
     }
     return {"meta": meta, "sats": sats, "scan": scan, "truth": truth, "los": los,
-            "fused": fused, "fix": fix}
+            "fused": fused, "fix": fix, "cues": cues}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -529,16 +556,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 <div class="panel" id="scanPanel">
-  <h2>星下点相对方位扫描（WFOV 往复扫 · 播放可见条带移动）</h2>
+  <h2 id="scanTitle">星下点相对方位扫描（WFOV 往复扫 · 播放可见条带移动）</h2>
+  <div style="display:flex;gap:10px;align-items:center;margin:4px 0 8px;font-size:12px">
+    <span style="color:var(--muted)">查看模式：</span>
+    <button class="btn" id="modeWide">全盘宽扫（24°）</button>
+    <button class="btn" id="modeNarrow">窄带 + cross-cue（8.7°）</button>
+    <span id="modeNote" style="color:#5b6b80"></span>
+  </div>
   <canvas id="cvScan" width="{canvas_w}" height="240"></canvas>
-  <div class="scan-legend">
+  <canvas id="cvCue" style="display:none"></canvas>
+  <div class="scan-legend" id="scanLegend">
     <span><i style="background:#1a3348;border:1px solid #2a4a62"></i>扫描范围 0°–scan_span</span>
     <span><i style="background:rgba(255,165,0,.35);border:1px solid #ff9800"></i>当前 WFOV 足印</span>
     <span><i style="background:#63c98a;border-radius:50%"></i>目标在足印内且检出</span>
     <span><i style="background:#8393a8;border-radius:50%"></i>目标在场未检出</span>
     <span><i style="background:#e0705a;border-radius:50%"></i>目标被地球遮挡</span>
   </div>
-  <div class="hint">横轴 = 相对星下点的 ECI 方位偏移（°）；橙框随周期移动（scan_rate=6°/s，scan_span=30° 往复）。
+  <div class="hint" id="scanHint">横轴 = 相对星下点的 ECI 方位偏移（°）；橙框随周期移动（scan_rate=6°/s，scan_span=30° 往复）。
     点击播放或拖周期滑块观察扫描。</div>
 </div>
 
@@ -586,6 +620,9 @@ for (const e of FIX) FIX_BY_CK[e.c + ":" + e.key] = e;
 const SCAN = DATA.scan || [];
 const SCAN_BY_CS = {{}};
 for (const e of SCAN) SCAN_BY_CS[e.c + ":" + e.sid] = e;
+const CUES = DATA.cues || [];
+const DISK_HALF = META.diskHalfDeg || 8.7;
+let VIEW_MODE = META.viewModeAuto || "wide";
 const EARTH_R = META.earthR;
 const GEO_R = SATS.length ? Math.hypot(SATS[0].p[0], SATS[0].p[1], SATS[0].p[2]) : 42164.0;
 const COLOR_EARTH_GRID = "{COLOR_EARTH_GRID}";
@@ -747,7 +784,7 @@ function buildFovCone(sat, scanAzDeg) {{
 /* ═══════════════ 扫描条带面板（2D） ═══════════════ */
 const cvScan = document.getElementById("cvScan");
 const ctxScan = cvScan.getContext("2d");
-function renderScanPanel() {{
+function renderScanPanelWide() {{
   const W = cvScan.width, H = cvScan.height;
   ctxScan.clearRect(0, 0, W, H);
   const rowH = Math.floor((H - 16) / Math.max(1, SATS.length));
@@ -836,6 +873,228 @@ function renderScanPanel() {{
   }}
 }}
 
+/* ================================ 窄带模式条带（8.7° 视场 + 盘缘/盲区/递话标注） ================================ */
+function renderScanPanelNarrow() {{
+  const W = cvScan.width, H = cvScan.height;
+  ctxScan.clearRect(0, 0, W, H);
+  const rowH = Math.floor((H - 16) / Math.max(1, SATS.length));
+  const padL = 52, padR = 16, padTop = 8;
+  const satById = {{}};
+  for (const s of SATS) satById[s.sid] = s;
+  for (let si = 0; si < SATS.length; si++) {{
+    const sat = SATS[si];
+    const st = scanStateFor(sat, cycle);
+    const span = st.scanSpan || 30;
+    const wfov = st.wfovAz || 8.7;
+    const clipEnd = Math.min(span, DISK_HALF + wfov / 2);
+    const xMin = -(DISK_HALF + 5), xMax = clipEnd + 6, xRange = xMax - xMin;
+    const y0 = padTop + si * rowH + 4;
+    const yMid = y0 + rowH / 2 - 8;
+    const barH = Math.min(26, rowH - 30);
+    const capH = 7;
+    const xMap = deg => padL + (deg - xMin) / xRange * (W - padL - padR);
+    ctxScan.fillStyle = sat.color;
+    ctxScan.font = "bold 12px sans-serif";
+    ctxScan.fillText("星 " + sat.id, 8, yMid + 4);
+    ctxScan.fillStyle = "#8393a8";
+    ctxScan.font = "10px sans-serif";
+    ctxScan.fillText(fmt(st.scanRel, 1) + "°", 8, yMid + 16);
+    ctxScan.fillStyle = "#14202c";
+    ctxScan.fillRect(padL, yMid - barH / 2, W - padL - padR, barH);
+    ctxScan.fillStyle = "rgba(40, 80, 120, 0.5)";
+    ctxScan.fillRect(xMap(-DISK_HALF), yMid - barH / 2,
+                     xMap(DISK_HALF) - xMap(-DISK_HALF), barH);
+    ctxScan.strokeStyle = "#7fa8c8"; ctxScan.setLineDash([4, 3]); ctxScan.lineWidth = 1;
+    for (const edge of [-DISK_HALF, DISK_HALF]) {{
+      ctxScan.beginPath();
+      ctxScan.moveTo(xMap(edge), yMid - barH / 2 - capH - 4);
+      ctxScan.lineTo(xMap(edge), yMid + barH / 2 + capH + 4);
+      ctxScan.stroke();
+    }}
+    ctxScan.setLineDash([]);
+    ctxScan.fillStyle = "#7fa8c8"; ctxScan.font = "9px sans-serif";
+    ctxScan.fillText("盘缘 −" + DISK_HALF.toFixed(1) + "°", xMap(-DISK_HALF) - 30,
+                     yMid - barH / 2 - capH - 7);
+    ctxScan.fillText("盘缘 +" + DISK_HALF.toFixed(1) + "°", xMap(DISK_HALF) - 26,
+                     yMid - barH / 2 - capH - 7);
+    ctxScan.fillStyle = "rgba(45, 90, 120, 0.55)";
+    ctxScan.fillRect(xMap(0), yMid - barH / 2, xMap(clipEnd) - xMap(0), barH);
+    ctxScan.strokeStyle = "#3d6a8f"; ctxScan.lineWidth = 1;
+    ctxScan.strokeRect(xMap(0), yMid - barH / 2, xMap(clipEnd) - xMap(0), barH);
+    ctxScan.fillStyle = "#ffd47f"; ctxScan.font = "9px sans-serif";
+    ctxScan.fillText("有效扫程 0→+" + clipEnd.toFixed(1) + "°（配置 " + span + "° 被裁）",
+                     xMap(0) + 4, yMid - barH / 2 - capH - 7);
+    const hatchRect = (rx, ry, rw, rh) => {{
+      ctxScan.save();
+      ctxScan.beginPath(); ctxScan.rect(rx, ry, rw, rh); ctxScan.clip();
+      ctxScan.fillStyle = "rgba(224, 112, 90, 0.12)";
+      ctxScan.fillRect(rx, ry, rw, rh);
+      ctxScan.strokeStyle = "rgba(224, 112, 90, 0.55)"; ctxScan.lineWidth = 1;
+      for (let hx = rx - rh; hx < rx + rw; hx += 6) {{
+        ctxScan.beginPath(); ctxScan.moveTo(hx, ry + rh); ctxScan.lineTo(hx + rh, ry);
+        ctxScan.stroke();
+      }}
+      ctxScan.restore();
+    }};
+    hatchRect(xMap(-DISK_HALF), yMid - barH / 2 - capH - 2,
+              xMap(DISK_HALF) - xMap(-DISK_HALF), capH);
+    hatchRect(xMap(-DISK_HALF), yMid + barH / 2 + 2,
+              xMap(DISK_HALF) - xMap(-DISK_HALF), capH);
+    if (si === 0) {{
+      ctxScan.fillStyle = "#e0705a"; ctxScan.font = "9px sans-serif";
+      ctxScan.fillText("俯仰盲区（单行盖不住的盘缘帽）",
+                       xMap(DISK_HALF) + 8, yMid - barH / 2 - capH + 5);
+    }}
+    ctxScan.strokeStyle = sat.color; ctxScan.globalAlpha = 0.35; ctxScan.lineWidth = 1.5;
+    ctxScan.beginPath();
+    let started = false;
+    for (let c = 1; c <= cycle; c++) {{
+      const hist = scanStateFor(sat, c);
+      const px = xMap(hist.scanRel);
+      if (!started) {{ ctxScan.moveTo(px, yMid); started = true; }}
+      else ctxScan.lineTo(px, yMid);
+    }}
+    ctxScan.stroke();
+    ctxScan.globalAlpha = 1;
+    const rel = st.scanRel, halfW = wfov / 2;
+    const boxL = xMap(rel - halfW), boxR = xMap(rel + halfW);
+    ctxScan.fillStyle = "rgba(255, 152, 0, 0.28)";
+    ctxScan.fillRect(boxL, yMid - barH / 2, boxR - boxL, barH);
+    ctxScan.strokeStyle = "#ff9800"; ctxScan.lineWidth = 2;
+    ctxScan.strokeRect(boxL, yMid - barH / 2, boxR - boxL, barH);
+    for (const e of (LOS_BY_C[cycle] || [])) {{
+      if (e.sid !== sat.sid || !e.present || e.targetRel === null) continue;
+      const tx = xMap(e.targetRel);
+      const occulted = e.margin !== null && e.margin < 0;
+      const inFov = Math.abs(e.targetRel - rel) <= halfW;
+      const detected = e.status === "detected";
+      ctxScan.beginPath();
+      ctxScan.arc(tx, yMid, detected ? 5 : 4, 0, 2 * Math.PI);
+      if (detected) ctxScan.fillStyle = "#63c98a";
+      else if (occulted) ctxScan.fillStyle = "#e0705a";
+      else ctxScan.fillStyle = inFov ? "#aab8c8" : "#5a6573";
+      ctxScan.fill();
+      ctxScan.strokeStyle = detected ? "#fff" : "#33404f";
+      ctxScan.lineWidth = 1;
+      ctxScan.stroke();
+      const cue = CUES.find(q => q.c === cycle && q.to === sat.sid && q.tid === e.tid);
+      if (cue && detected) {{
+        const from = satById[cue.from];
+        ctxScan.strokeStyle = "#ffffff"; ctxScan.lineWidth = 2;
+        ctxScan.beginPath(); ctxScan.arc(tx, yMid, 9, 0, 2 * Math.PI); ctxScan.stroke();
+        ctxScan.fillStyle = from ? from.color : "#fff";
+        ctxScan.font = "10px sans-serif";
+        ctxScan.fillText("递话←星 " + (from ? from.id : cue.from), tx + 12, yMid - 8);
+      }}
+    }}
+    ctxScan.fillStyle = "#5a6573"; ctxScan.font = "9px sans-serif";
+    for (const tick of [-DISK_HALF, 0, clipEnd]) {{
+      const tx = xMap(tick);
+      ctxScan.fillText(String(Math.round(tick * 10) / 10), tx - 8,
+                       yMid + barH / 2 + capH + 12);
+    }}
+  }}
+}}
+
+/* ================================ cross-cue 递话时间线（窄带模式专属面板） ================================ */
+const cvCue = document.getElementById("cvCue");
+const ctxCue = cvCue.getContext("2d");
+function renderCuePanel() {{
+  if (VIEW_MODE !== "narrow") {{ cvCue.style.display = "none"; return; }}
+  cvCue.style.display = "block";
+  const rowH = 22, padL = 70, padR = 20, padTop = 26, padBot = 18;
+  cvCue.height = padTop + TRUTH_KEYS.length * rowH + padBot;
+  cvCue.width = cvScan.width;
+  const W = cvCue.width;
+  ctxCue.clearRect(0, 0, W, cvCue.height);
+  const xMap = c => padL + (c - 1) / Math.max(1, N - 1) * (W - padL - padR);
+  ctxCue.fillStyle = "#aebdd2"; ctxCue.font = "12px sans-serif";
+  ctxCue.fillText("cross-cue 递话时间线（点 = 检出，颜色 = 哪颗星检出；箭头 = 星→地→星递话握手；绿 tick = 双星交会样本）",
+                  padL - 46, 14);
+  ctxCue.fillStyle = "#5a6573"; ctxCue.font = "9px sans-serif";
+  for (let c = 5; c <= N; c += 10) {{
+    ctxCue.fillText(String(c), xMap(c) - 6, cvCue.height - 5);
+  }}
+  for (const e of FIX) {{
+    ctxCue.strokeStyle = "rgba(99, 201, 138, 0.8)"; ctxCue.lineWidth = 2;
+    ctxCue.beginPath();
+    ctxCue.moveTo(xMap(e.c), cvCue.height - padBot + 2);
+    ctxCue.lineTo(xMap(e.c), cvCue.height - padBot + 8);
+    ctxCue.stroke();
+  }}
+  TRUTH_KEYS.forEach((tid, ti) => {{
+    const y = padTop + ti * rowH + rowH / 2;
+    ctxCue.fillStyle = TRUTH_COLOR[tid] || "#d62728";
+    ctxCue.font = "bold 11px sans-serif";
+    ctxCue.fillText("目标 " + tid, 10, y + 4);
+    ctxCue.strokeStyle = "#1c2836"; ctxCue.lineWidth = 1;
+    ctxCue.beginPath(); ctxCue.moveTo(padL, y); ctxCue.lineTo(W - padR, y); ctxCue.stroke();
+    for (const e of LOS) {{
+      if (e.tid !== tid || e.status !== "detected") continue;
+      const sat = SAT_BY_SID[e.sid];
+      const oy = (SATS.indexOf(sat) - (SATS.length - 1) / 2) * 6;
+      ctxCue.fillStyle = sat ? sat.color : "#8393a8";
+      ctxCue.beginPath(); ctxCue.arc(xMap(e.c), y + oy, 3.2, 0, 2 * Math.PI);
+      ctxCue.fill();
+    }}
+    for (const q of CUES) {{
+      if (q.tid !== tid) continue;
+      const from = SAT_BY_SID[q.from];
+      const to = SAT_BY_SID[q.to];
+      if (!from || !to) continue;
+      const y0 = y + (SATS.indexOf(from) - (SATS.length - 1) / 2) * 6;
+      const y1 = y + (SATS.indexOf(to) - (SATS.length - 1) / 2) * 6;
+      ctxCue.strokeStyle = from.color; ctxCue.globalAlpha = 0.9; ctxCue.lineWidth = 1.6;
+      ctxCue.beginPath();
+      ctxCue.moveTo(xMap(q.c - 1), y0);
+      ctxCue.quadraticCurveTo((xMap(q.c - 1) + xMap(q.c)) / 2, Math.min(y0, y1) - 10,
+                              xMap(q.c) - 4, y1);
+      ctxCue.stroke();
+      ctxCue.beginPath();
+      ctxCue.moveTo(xMap(q.c) - 4, y1);
+      ctxCue.lineTo(xMap(q.c) - 10, y1 - 3);
+      ctxCue.moveTo(xMap(q.c) - 4, y1);
+      ctxCue.lineTo(xMap(q.c) - 10, y1 + 3);
+      ctxCue.stroke();
+      ctxCue.globalAlpha = 1;
+    }}
+  }});
+}}
+
+/* ================================ 模式切换 ================================ */
+const LEGEND_WIDE = document.getElementById("scanLegend").innerHTML;
+const HINT_WIDE = document.getElementById("scanHint").innerHTML;
+const LEGEND_NARROW = '<span><i style="background:rgba(40,80,120,.5);border:1px solid #7fa8c8"></i>地球盘（±8.7°）</span>' +
+  '<span><i style="background:#1a3348;border:1px solid #2a4a62"></i>有效扫程（跨度收敛后）</span>' +
+  '<span><i style="background:repeating-linear-gradient(45deg,rgba(224,112,90,.4) 0 3px,transparent 3px 6px);border:1px solid #e0705a"></i>俯仰盲区（盘缘帽）</span>' +
+  '<span><i style="background:rgba(255,165,0,.35);border:1px solid #ff9800"></i>当前 WFOV 足印</span>' +
+  '<span><i style="background:#63c98a;border-radius:50%;box-shadow:0 0 0 2px #fff"></i>递话后首检（白圈）</span>';
+function applyViewMode() {{
+  const narrow = VIEW_MODE === "narrow";
+  document.getElementById("modeNarrow").classList.toggle("active", narrow);
+  document.getElementById("modeWide").classList.toggle("active", !narrow);
+  document.getElementById("scanTitle").textContent = narrow
+    ? "窄带扫描 + cross-cue（8.7° 视场 · 蓝区=地球盘 · 红纹=俯仰盲区 · 播放可见递话握手）"
+    : "星下点相对方位扫描（WFOV 往复扫 · 播放可见条带移动）";
+  document.getElementById("scanLegend").innerHTML = narrow ? LEGEND_NARROW : LEGEND_WIDE;
+  document.getElementById("scanHint").innerHTML = narrow
+    ? "横轴 = 相对星下点的 ECI 方位偏移（°）。8.7° 视场单行盖不满盘（红纹盲区），自家宽场门外的目标靠他星递话进入窄场；下方时间线展示递话握手。"
+    : HINT_WIDE;
+  document.getElementById("modeNote").textContent =
+    "数据自动识别：" + (META.viewModeAuto === "narrow" ? "窄带" : "全盘") +
+    "（当前查看：" + (narrow ? "窄带 + cross-cue" : "全盘宽扫") + "）";
+  renderCuePanel();
+  renderScanPanel();
+  render();
+}}
+document.getElementById("modeWide").addEventListener("click", () => {{ VIEW_MODE = "wide"; applyViewMode(); }});
+document.getElementById("modeNarrow").addEventListener("click", () => {{ VIEW_MODE = "narrow"; applyViewMode(); }});
+
+function renderScanPanel() {{
+  if (VIEW_MODE === "narrow") renderScanPanelNarrow();
+  else renderScanPanelWide();
+}}
+
 /* ═══════════════ 悬停命中列表（每帧重建） ═══════════════ */
 let hitTargets = [];
 
@@ -908,6 +1167,37 @@ function render() {{
       }}
       ctx.closePath(); ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }}
+    if (VIEW_MODE === "narrow") {{
+      // 窄带模式：画地球盘缘方向圈（半径 = 盘角径 8.7°，与 WFOV 锥同尺度对照——
+      // 锥只有盘的一半宽，单行盖不满盘的部分即俯仰盲区）。
+      for (const s of SATS) {{
+        const axis = vunit([-s.p[0], -s.p[1], -s.p[2]]);
+        let u0 = Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+        const e1 = vunit(vcross(u0, axis));
+        const e2 = vunit(vcross(axis, e1));
+        const dh = DISK_HALF * Math.PI / 180;
+        const D = Math.sqrt(vdot(s.p, s.p) - EARTH_R * EARTH_R);
+        ctx.strokeStyle = "#8fa8c4"; ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        let limbStarted = false;
+        for (let k = 0; k <= 48; k++) {{
+          const ph = k / 48 * 2 * Math.PI;
+          const dir = vunit([
+            axis[0] * Math.cos(dh) + (e1[0] * Math.cos(ph) + e2[0] * Math.sin(ph)) * Math.sin(dh),
+            axis[1] * Math.cos(dh) + (e1[1] * Math.cos(ph) + e2[1] * Math.sin(ph)) * Math.sin(dh),
+            axis[2] * Math.cos(dh) + (e1[2] * Math.cos(ph) + e2[2] * Math.sin(ph)) * Math.sin(dh),
+          ]);
+          const pt = [s.p[0] + dir[0] * D, s.p[1] + dir[1] * D, s.p[2] + dir[2] * D];
+          const q = VIEW.project(pt);
+          if (!q) {{ limbStarted = false; continue; }}
+          if (!limbStarted) {{ ctx.moveTo(q.x, q.y); limbStarted = true; }}
+          else ctx.lineTo(q.x, q.y);
+        }}
+        ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+      }}
     }}
   }}
 
@@ -1201,7 +1491,7 @@ function setCycle(c) {{
   cycle = Math.max(1, Math.min(N, c));
   document.getElementById("cycleSlider").value = cycle;
   document.getElementById("cycleReadout").textContent = `cycle ${{cycle}} / ${{N}}`;
-  render(); renderScanPanel(); renderLosTable(); renderFixChart();
+  render(); renderScanPanel(); renderCuePanel(); renderLosTable(); renderFixChart();
 }}
 function play() {{
   if (playing) return;
@@ -1240,6 +1530,7 @@ function pause() {{
   // URL 锚点 #cycle=N 直接定位周期（如分享/存档特定帧）。
   const m = location.hash.match(/^#cycle=(\\d+)/);
   setCycle(m ? Math.max(1, Math.min(N, parseInt(m[1]))) : 1);
+  applyViewMode();  // 初始按数据模式套用标题/图例/递话面板
 }})();
 </script>
 </body>

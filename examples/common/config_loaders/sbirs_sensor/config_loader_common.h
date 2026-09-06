@@ -40,6 +40,15 @@ inline sbirs_sensor::config::SbirsScanAzimuthReference SbirsScanAzimuthReference
   return sbirs_sensor::config::SbirsScanAzimuthReference::kEciAbsolute;
 }
 
+// 扫描稳定方式（SbirsOrientationConfig）：kBodyStabilized = 传感器系角度；
+// kInertialStabilized = ECI 参考方向。未知串回落体稳定（与其它枚举助手同策略）。
+inline sbirs_sensor::config::SbirsStabilizationMode SbirsStabilizationModeFromString(
+    const std::string& s) {
+  if (s == "kInertialStabilized")
+    return sbirs_sensor::config::SbirsStabilizationMode::kInertialStabilized;
+  return sbirs_sensor::config::SbirsStabilizationMode::kBodyStabilized;
+}
+
 inline sbirs_sensor::config::SbirsTrackingMode SbirsTrackingModeFromString(
     const std::string& s) {
   if (s == "kEstimated")

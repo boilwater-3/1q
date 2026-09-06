@@ -35,19 +35,23 @@ struct ONEQ_API RirAspectRcsSample {
 };
 
 /**
- * @brief RirPolarizationRcsSample 同一观测几何下极化 RCS 样本。
- * @note channel_1 = HH，channel_2 = VV。交叉极化与 HH–VV 相位仅验收旁路消费；
- *       0 dBsm 合法，必须用 has_* 声明已填，不得把 0 当缺省。
+ * @brief RirPolSMatrixSample 同一观测几何下的四路复数极化散射样本（Sinclair S 一行）。
+ * @note 一行＝一个视角下 HH/HV/VH/VV 四路的幅度（dBsm，0 合法）与相位（deg），
+ *       四路必备、无缺省开关。`RirSceneTarget::polarization_samples` 携带的是
+ *       当前视角附近的窗口行（场景层裁剪），不是全量字典——全量字典由场景层
+ *       开机一次性载入（架构 B，2026-09-03 冻结）。
  */
-struct ONEQ_API RirPolarizationRcsSample {
-  float aspect_az_deg{0.0f};       /**< 入射方位角（deg），任意有限值。 */
-  float aspect_el_deg{0.0f};       /**< 入射俯仰角（deg），任意有限值。 */
-  float channel_1_rcs_dbsm{0.0f};  /**< HH 通道 RCS（dBsm）。 */
-  float channel_2_rcs_dbsm{0.0f};  /**< VV 通道 RCS（dBsm）。 */
-  float cross_rcs_dbsm{0.0f};      /**< 交叉极化 HV=VH RCS（dBsm）；has_cross_pol 为假时忽略。 */
-  float phase_vv_rel_hh_deg{0.0f}; /**< VV 相对 HH 相位（deg）；has_phase_vv 为假时忽略。 */
-  bool has_cross_pol{false};       /**< 已显式提供交叉极化 RCS。 */
-  bool has_phase_vv{false};        /**< 已显式提供 HH–VV 相位。 */
+struct ONEQ_API RirPolSMatrixSample {
+  float aspect_az_deg{0.0f};  /**< 入射方位角（deg），任意有限值。 */
+  float aspect_el_deg{0.0f};  /**< 入射俯仰角（deg），任意有限值。 */
+  float hh_amp_db{0.0f};      /**< HH 通道 RCS 幅度（dBsm）。 */
+  float hh_phase_deg{0.0f};   /**< HH 通道相位（deg）。 */
+  float hv_amp_db{0.0f};      /**< HV 通道 RCS 幅度（dBsm）。 */
+  float hv_phase_deg{0.0f};   /**< HV 通道相位（deg）。 */
+  float vh_amp_db{0.0f};      /**< VH 通道 RCS 幅度（dBsm）。 */
+  float vh_phase_deg{0.0f};   /**< VH 通道相位（deg）。 */
+  float vv_amp_db{0.0f};      /**< VV 通道 RCS 幅度（dBsm）。 */
+  float vv_phase_deg{0.0f};   /**< VV 通道相位（deg）。 */
 };
 
 /**
@@ -80,7 +84,7 @@ struct ONEQ_API RirSceneTarget {
 
   /** 识别专用特征真值输入（默认空；空向量表示该维度不可用） */
   std::vector<RirAspectRcsSample> aspect_rcs_samples{};
-  std::vector<RirPolarizationRcsSample> polarization_rcs_samples{};
+  std::vector<RirPolSMatrixSample> polarization_samples{};
   std::vector<RirRangeRcsScatterer> range_rcs_scatterers{};
 };
 

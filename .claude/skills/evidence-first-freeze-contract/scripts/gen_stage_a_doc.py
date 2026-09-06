@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """生成 Stage A 证据矩阵文档骨架（evidence-first-freeze-contract skill 调用）。
 
-用法：python scripts/gen_stage_a_doc.py <topic> [--date YYYY-MM-DD]
+用法：python .claude/skills/evidence-first-freeze-contract/scripts/gen_stage_a_doc.py <topic> [--date YYYY-MM-DD]
 
 行为：
 1、创建 docs/review/<topic>_stage_a_<date>.md 骨架，自动填 Date 与
@@ -20,7 +20,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+
+def get_repo_root() -> Path:
+    """取 git 仓库根；不在 git 仓库内时退回脚本所在 .claude/ 的上一级。
+
+    脚本位于 <仓库根>/.claude/skills/evidence-first-freeze-contract/scripts/，
+    parents 依次为 scripts → evidence-first-freeze-contract → skills → .claude → 仓库根。
+    """
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            check=True, capture_output=True, text=True,
+        )
+        return Path(res.stdout.strip())
+    except Exception:
+        return Path(__file__).resolve().parents[4]
+
+
+REPO_ROOT = get_repo_root()
 TOPIC_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -29,8 +46,9 @@ SKELETON = """\
 Status: draft
 Date: {date}
 Review-Baseline: `{branch}` @ `{commit}`
-Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
-  及各模块 docs/<module>/design.md 为准；与库实现冲突时以库为准。
+Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
+  及各模块 docs/<module>/design.md 为准；与库实现冲突时以库为准；
+  权威回写完成、合并进 main 前移除本文档。
 ---
 
 # {topic}：证据矩阵
@@ -72,8 +90,9 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 1、允许范围：模块/目录、类/函数、测试与文档。
 2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
 3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
+4、爆炸半径与回滚：下游消费方影响、回退难度（无损/破坏性/回滚注意点）。
+5、验收门：构建、聚焦测试、契约测试、特征化测试、探针转正（有回归价值的探针转正式测试）。
+6、非目标。
 -->
 
 ## 修订记录
@@ -82,9 +101,14 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
+<!-- 对照强制回写清单勾项，全部完成才允许拆脚手架（见 SKILL.md 收尾规则）：
+1、实现范围：改动文件与接口。
+2、验证命令与结果：命令: pass/fail（含转正的探针测试）。
+3、权威回写去向：
+   1、正向边界：docs/<module>/design.md（boundaries/data-flow/algorithms 按归属选）。
+   2、否决记录：docs/<module>/design.md 的"架构裁定与否决记录"专节（体裁见 docs-governance-standard）。
+   3、开放议题：docs/common/open_questions.md 登记（编号）。
+   4、证据锁：新增/修订规则后附 - **证据**：[evidence: 路径]。
 4、残留风险。
 5、后续冻结项。
 -->

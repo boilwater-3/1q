@@ -140,10 +140,10 @@ endif()
 # ---------------------------------------------------------------------------
 # 通用 runner（对外 target 名保持不变）：--scene 跑任意场景 JSON；装配与执行
 # 与场景可执行共用 examples_core 内的 RunScene。
-# 验收日志通道提示：SBIRS 宽窄视场验收量写入 sbirs_acceptance.log，开关为库编译期选项。
-if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
-    message(STATUS "examples: ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=OFF -> no "
-        "sbirs_acceptance.log; reconfigure with -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON")
+# 验收日志通道提示：OPIR 宽窄视场验收量写入 opir_acceptance.log，开关为库编译期选项。
+if(NOT ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG)
+    message(STATUS "examples: ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=OFF -> no "
+        "opir_acceptance.log; reconfigure with -DONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=ON")
 endif()
 
 add_executable(component_attachment_demo app/main.cpp)
@@ -187,6 +187,9 @@ foreach(_scene IN LISTS _oneq_selected_scenes)
     if(_scene STREQUAL "sbirs_triple_sat_fix_messages")
         continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
+    if(_scene STREQUAL "sbirs_inframe_dual_target")
+        continue()  # 同框验证场景共用精度评估 main，走下方同款接线（验收日志宏）
+    endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
     target_link_libraries(${_scene} PRIVATE examples_core)
     target_compile_definitions(${_scene} PRIVATE
@@ -207,6 +210,18 @@ if(sbirs_triple_sat_fix_messages IN_LIST _oneq_selected_scenes)
     list(APPEND _oneq_example_targets sbirs_triple_sat_fix_messages)
 endif()
 
+# 同框双目标验证场景（2026-09-02 单镜筒化）：共用精度评估 main 的派生场景
+#（json 换成同框几何），接线与三星座同款（验收文件钉 examples/log/<场景名>/）。
+if(sbirs_inframe_dual_target IN_LIST _oneq_selected_scenes)
+    add_executable(sbirs_inframe_dual_target scenes/sbirs_inframe_dual_target/main.cpp)
+    target_link_libraries(sbirs_inframe_dual_target PRIVATE examples_core)
+    target_compile_definitions(sbirs_inframe_dual_target PRIVATE
+        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_inframe_dual_target/sbirs_inframe_dual_target.json"
+        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
+        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+    list(APPEND _oneq_example_targets sbirs_inframe_dual_target)
+endif()
+
 add_executable(precision_evaluation_demo scenes/sbirs_triple_sat_fix_messages/main.cpp)
 target_link_libraries(precision_evaluation_demo PRIVATE examples_core)
 target_compile_definitions(precision_evaluation_demo PRIVATE
@@ -221,11 +236,11 @@ if(NOT ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
     message(STATUS "precision_evaluation: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF -> no "
         "precision_acceptance.log; reconfigure with -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON")
 endif()
-if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG OR NOT ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
+if(NOT ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG OR NOT ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
     OR NOT ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG)
     message(STATUS "precision_evaluation: also enable "
-        "ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG / FUSION / INFERENCE for "
-        "sbirs/fusion/inference_acceptance.log under the scene output dir")
+        "ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG / FUSION / INFERENCE for "
+        "opir/fusion/inference_acceptance.log under the scene output dir")
 endif()
 
 # 示例冒烟不进 ctest（示例是集成参考而非测试门禁，release 全量跑 ~25 s、

@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-23
+Last-reviewed: 2026-09-03
 ---
 
 # 跨模块开放议题
@@ -24,11 +24,14 @@ Last-reviewed: 2026-08-23
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
 | COMMON-OQ-10 | common | examples 会话配置三处同构维护 | 模板 + 16 场景 JSON + loader 键映射靠人工同步，字段变更漏一处即静默失配 | open |
+| COMMON-OQ-11 | common | AR/ESR/ECM 全极化放行冻结 | kFullPolarization 仅 RIR 放行；共享计算层已支持值 5 | open |
+| COMMON-OQ-12 | common | 全极化对非极化功率守恒口径 | 冻结保守 3.0103 dB；守恒 0 dB 口径待干扰/杂波定量验收触发 | open |
 | SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
 | SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
 | ESR-OQ-4 | electronic_surveillance_radar | 扫描采样点数上限截断 | 超 131072 点截断丢弃窗口末端，是否产品认可 | open |
 | RIR-OQ-3 | remote_identification_radar | inconsistent_platform_position 疑似死码 | 头文件有、代码无产生点，是否删除 | open |
+| RIR-OQ-4 | remote_identification_radar | 极化四类判决判据缺位 | 五统计量已量测，RV/HD/LD/DB 映射判据等甲方原件；场景字典为合成占位 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
@@ -120,6 +123,31 @@ Last-reviewed: 2026-08-23
   引入"部分字段块"混用形态。
 - **再进入条件 (Stage A)**：下一次传感器配置字段增删改需触及超过 5 份 JSON，
   或发现任一场景 `session_config` 键树与模板漂移。
+
+### COMMON-OQ-11：AR/ESR/ECM 全极化放行冻结
+
+- **现状**：`kFullPolarization`（2026-09-03 落地）仅 RIR 的 `scene_polarization` 放行；
+  AR/ESR/ECM 冻结——配置不放行、加载器不加拼写、回放不接。公共纯函数层
+  （两条枚举链的失配计算）已支持值 5，模块差异只在配置/加载器/回放放行面。
+  [evidence: docs/common/rf_architecture.md]
+  [evidence: src/electronic_surveillance_radar/session/EsrSessionConfigValidation.cpp]
+- **后果**：三模块的仿真无法表达全极化收/发；程序化直接填值 5 时共享计算层会按全极化规则求解
+  （ESR 经校验拒绝，AR/ECM 无校验拦截）。
+- **待决问题**：某模块需要全极化时按何口径解冻（加载器拼写、校验上限、回放往返断言一次配齐）。
+- **当前边界**：RIR 之外不得放开 `kFullPolarization`；解冻前不得为 AR/ESR/ECM 加放行代码。
+- **再进入条件 (Stage A)**：AR/ESR/ECM 任一模块立项需要全极化工作模式。
+
+### COMMON-OQ-12：全极化对非极化的功率守恒口径
+
+- **现状**：全极化对非极化冻结为保守 3.0103 dB（"任一侧非极化固定 3.0103 dB"公理优先于
+  全极化规则）；物理上双通道功率相加可回收全部非极化功率（0 dB）。
+  [evidence: src/common/electromagnetics/RfLinkBudget.cpp]::TryPolarizationLoss
+  [evidence: tests/unit/common/common_rf_scene_test.cpp]::FullPolarizationPairingAppliesMergeAndHalfRules
+- **后果**：全极化接收对非极化干扰/杂波按半功率计入——对接收方偏乐观（漏计一半干扰功率）；
+  对信号检测偏保守。
+- **待决问题**：是否改按功率守恒 0 dB 口径，或按"信号/干扰分路"区分口径。
+- **当前边界**：维持 3.0103 dB 单一口径；不得在一处改口径而不动另一条枚举链。
+- **再进入条件 (Stage A)**：出现以非极化干扰/杂波为对象的定量验收或标定需求。
 
 ## Airborne Radar 非阻塞边界
 
@@ -288,7 +316,6 @@ Last-reviewed: 2026-08-23
   但俯仰中心 `scan_center_el_deg` 仍只能手工填绝对值；config 校验无"视场是否对着地球"的几何告警
   （方位基准裁决时方案 1 告警被 defer）。
   [evidence: include/1q/sbirs_sensor/config/SbirsMissionConfig.h]
-  [evidence: docs/review/sbirs-nadir-stare-mode_stage_a_2026-08-31.md]
 - **后果**：GEO 赤道轨道下星下点俯仰恒 ≈0，手填 0 恰为正确值，无痛点；非 GEO（倾斜/低轨）轨道下
   星下点俯仰 = −asin(z/|r|) 随位置漂移（可达数十度），手填值会持续偏离且无告警，复现"方位抄数配错"
   的同型故障。
@@ -305,7 +332,6 @@ Last-reviewed: 2026-08-23
   现实中各星独立开机、相位任意。
   [evidence: include/1q/sbirs_sensor/session/SbirsOutputTypes.h] ::SbirsDetectionRecord
   [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp] ::ApplyConfig
-  [evidence: docs/review/sbirs-dual-sat-timing_stage_a_2026-08-31.md]
 - **后果**：扫描模式下"哪一周期检出"是抽帧相位的人为产物；下游（融合/评估）拿不到测量时刻，
   只能以周期号为时间基准。当前由评估层配对窗（`dual_sat_pair_window_cycles`）在消费侧补偿，
   属权宜口径。
@@ -362,6 +388,21 @@ Last-reviewed: 2026-08-23
 
 ## Remote Identification Radar 非阻塞边界
 
+### RIR-OQ-4：极化四类判决判据缺位（RV/重诱饵/轻诱饵/碎片）
+
+- **现状**：极化散射矩阵统计特征（五量×均值/标准差）已量测进特征链与验收日志
+  （2026-09-03 落地），`RirBallisticSubclass` 枚举与回放字段就位但无生产者——
+  五统计量→四类的映射判据（阈值表/特征库维度/规则）依赖甲方表格与判据文本，
+  原件未到手。新弹道场景字典为合成占位值（类间区分有、绝对数值无实测依据）。
+  [evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]
+  [evidence: examples/scenes/rir_ballistic_discrimination/rir_ballistic_discrimination.md]
+- **后果**：验收日志"目标类型"行无细分输出（恒仅粗类）；占位字典不能用于
+  定量验收。
+- **待决问题**：判据形式（甲方阈值表 / SQLite 特征库新维度 / 演示规则）与
+  占位字典替换。
+- **当前边界**：不得臆造判决阈值；细分字段恒 kUnknown。
+- **再进入条件 (Stage A)**：甲方表格原件+判据文本到手。
+
 ### RIR-OQ-3：inconsistent_platform_position 疑似死码
 
 - **现状**：`RirIssueCodes.h` 登记 `rir.validation.inconsistent_platform_position`（平台位置一致性校验），
@@ -417,7 +458,6 @@ Last-reviewed: 2026-08-23
   [evidence: src/airborne_radar/signal/association/DataAssociation.h]
   [evidence: src/airborne_radar/signal/tracking/TrackLifecycleManager.h]
   [evidence: src/airborne_radar/decision/ThreatAssessmentEvaluator.cpp]
-  [evidence: docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md]
 - **后果**：同一目标在 AR 内（LAPJV）与 fusion 内（按 association_key 再关联）被关联两次；
   传感器 public 输出同时承载估计产品（滤波航迹）与推演结论（识别标签），下游
   threat_assessment 的类型概率输入实际消费传感器回填的识别结论；估计层轨迹滤波立项时存在

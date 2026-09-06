@@ -35,6 +35,7 @@
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "json_reader.h"
+#include "config_loaders/sbirs_sensor/config_loader.h"
 #include "csv_writer.h"
 #include "app/output_dir.h"
 #include "components/ground_station_fusion_component.h"
@@ -66,6 +67,7 @@ struct LoadedSatellite {
   double attitude_yaw_deg{0.0};
   double attitude_pitch_deg{0.0};
   double attitude_roll_deg{0.0};
+  bool cross_cue{false};  // 星间递话开关（2026-09-01 契约：默认关；true=递话+受话）
 };
 
 struct LoadedScene {
@@ -174,10 +176,6 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
   if (block.Has("scan_center_el_deg")) {
     config.mission.scan_center_el_deg = static_cast<float>(block["scan_center_el_deg"].AsDouble());
   }
-  if (block.Has("max_concurrent_nfov_locks")) {
-    config.policy.scheduler.max_concurrent_nfov_locks =
-        static_cast<int>(block["max_concurrent_nfov_locks"].AsInt());
-  }
   config.policy.detection.wide_min_snr_linear =
       block.Has("wide_min_snr_linear")
           ? static_cast<float>(block["wide_min_snr_linear"].AsDouble())
@@ -186,6 +184,10 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
       block.Has("narrow_min_snr_linear")
           ? static_cast<float>(block["narrow_min_snr_linear"].AsDouble())
           : 0.001f;
+  // 安装指向域（第10项验收行数据源）：安装角/失准/限位/稳定方式。缺段/缺键继承
+  // 加载器默认集 SbirsOrientationDefaults()（验收演示误差参数，非全零）；写了的
+  // 键逐一覆盖（如 B/C 星互异安装角）。库结构体默认仍为全零，单测不受影响。
+  LoadSbirsOrientation(block, &config.orientation);
   return config;
 }
 
@@ -303,6 +305,15 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
                         ? static_cast<std::uint32_t>(block["source_id"].AsInt())
                         : (4U + static_cast<std::uint32_t>(i) * 100U);
     sat.config = LoadSatelliteConfig(block);
+    if (block.Has("max_concurrent_nfov_locks")) {
+      // 已删除的"窄场镜筒数"配置（2026-09-02 单镜筒化）：显式拒绝而非静默忽略——
+      // 该键在本场景家族曾以 2 写入，静默跳过会让读者误以为多镜筒行为仍受控。
+      *error = "satellites[" + std::to_string(i) +
+               "] contains retired key 'max_concurrent_nfov_locks' (single-telescope NFOV "
+               "since 2026-09-02); remove it from the scene json";
+      return false;
+    }
+    sat.cross_cue = block.Has("cross_cue") && block["cross_cue"].AsBool();
     if (!LoadEphemerisSat(block, &sat.position_ecef_m, &sat.velocity_ecef_m_per_s, error,
                           ("satellites[" + std::to_string(i) + "]").c_str())) {
       return false;
@@ -667,6 +678,9 @@ int main(int argc, char* argv[]) {
             sbirs_sensor::session::SbirsSession::Create(sat.config), sat.source_id, pose, vel, att,
             component_attachment::SbirsGroundDeliveryMode::kMessage)));
     sbirs_components.push_back(entity.Find<component_attachment::SbirsSensorComponent>());
+    if (sat.cross_cue) {
+      sbirs_components.back()->SetCrossCueEnabled(true);  // cross-cue 常开（JSON cross_cue）
+    }
   }
   std::vector<std::uint32_t> evaluation_source_ids;
   evaluation_source_ids.push_back(scene.satellites[0].source_id);
@@ -713,7 +727,7 @@ int main(int argc, char* argv[]) {
             << " cycles x " << scene.dt_sec << " s, satellites=" << scene.satellites.size()
             << " GEO (ground-station message delivery)\n"
             << "acceptance logs -> " << output_dir
-            << " (precision/sbirs/fusion/inference_acceptance.log)\n";
+            << " (precision/opir/fusion/inference_acceptance.log)\n";
   for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
     const LoadedSatellite& sat = scene.satellites[i];
     std::cout << "  sat " << sat.id << " source_id=" << sat.source_id << " ecef=("

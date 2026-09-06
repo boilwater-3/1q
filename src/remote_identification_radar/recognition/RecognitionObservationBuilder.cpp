@@ -10,6 +10,7 @@
 
 #include "remote_identification_radar/recognition/MotionFeatureExtractor.h"
 #include "remote_identification_radar/recognition/PolarizationFeatureExtractor.h"
+#include "remote_identification_radar/recognition/PolarizationStatsExtractor.h"
 #include "remote_identification_radar/recognition/RangeProfileFeatureExtractor.h"
 #include "remote_identification_radar/recognition/RcsFeatureExtractor.h"
 
@@ -58,8 +59,9 @@ RirFeatureSet RirObservationBuilder::Build(const session::RirSceneTarget& target
   set.motion = RirMotionFeatureExtractor::Extract(snapshot, context.platform_altitude_m,
                                                   snapshot.EstimationUncertaintyTrace());
   set.polarization = RirPolarizationFeatureExtractor::Extract(
-      target.polarization_rcs_samples, context.look_az_deg, context.look_el_deg, context.snr_db,
+      target.polarization_samples, context.look_az_deg, context.look_el_deg, context.snr_db,
       context.range_m);
+  set.polarization_stats = RirPolarizationStatsExtractor::Extract(target.polarization_samples);
   set.range_profile =
       RirRangeProfileFeatureExtractor::Extract(target.range_rcs_scatterers, context.bandwidth_hz,
                                                context.snr_db, context.max_range_resolution_m);

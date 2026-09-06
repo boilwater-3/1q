@@ -38,6 +38,7 @@ bool IsKnownPolarization(RfPolarization polarization) {
     case RfPolarization::kRightHandCircular:
     case RfPolarization::kLeftHandCircular:
     case RfPolarization::kUnpolarized:
+    case RfPolarization::kFullPolarization:
       return true;
   }
   return false;
@@ -139,6 +140,14 @@ bool TryPolarizationLoss(const RfEmission& emission, const RfReceiverSite& recei
       (IsLinear(emission.polarization) && IsCircular(receiver.polarization)) ||
       (IsCircular(emission.polarization) && IsLinear(receiver.polarization))) {
     candidate = kLinearCircularLossDb;
+  } else if (emission.polarization == RfPolarization::kFullPolarization ||
+             receiver.polarization == RfPolarization::kFullPolarization) {
+    // 全极化接收合并两条正交通道，对任意固定极化收满（0 dB）；
+    // 单极化接收全极化发射只能收到正交两分量之一（一半功率）。
+    candidate = (emission.polarization == RfPolarization::kFullPolarization &&
+                 receiver.polarization != RfPolarization::kFullPolarization)
+                    ? kLinearCircularLossDb
+                    : 0.0;
   } else if (emission.polarization != receiver.polarization) {
     candidate = std::min(emission.antenna.cross_polarization_isolation_db,
                          receiver.antenna.cross_polarization_isolation_db);

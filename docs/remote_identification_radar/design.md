@@ -12,9 +12,8 @@ Answers: 远程识别雷达模块是什么、和谁交互、设计文档怎么�
 加权匹配，输出目标类别与最可能型号，并携带周期识别效能摘要。
 
 RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 AR 的工作模式或子能力。
-本模块由 AR 内被耦合的远程识别子系统（kLrr）解耦而来（2026-08-15 审计：
-`docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md`；
-迁移状态（主体已完成，余暂缓议题）：`docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
+本模块由 AR 内被耦合的远程识别子系统（kLrr）解耦而来（2026-08-15 审计；迁移主体已完成，
+余暂缓议题。两份审计记录已删档，见 git 历史）。
 
 ## 模块定位要点
 
@@ -69,3 +68,34 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   [algorithms.md](algorithms.md)
 
 跨模块公共规则见 `docs/common/contract.md`。
+
+## 架构裁定与否决记录
+
+1、**AR/ESR/ECM 放行全极化**（2026-09-03 否决）：Stage A 曾评估四模块全部放开
+   `kFullPolarization`；裁定仅 RIR 的 `scene_polarization` 放行，其余模块冻结——配置不放行、
+   加载器不加拼写、回放不接。ESR 会话校验 0..4 上限天然拒绝值 5；AR/ECM 无放行路径。
+   解冻登记为开放议题 COMMON-OQ-11。
+   - **证据**：[evidence: src/electronic_surveillance_radar/session/EsrSessionConfigValidation.cpp]
+   - **证据**：[evidence: docs/common/rf_architecture.md]（配对规则与模块放行范围）
+2、**dual_channel 能力字段化建模**（2026-09-03 否决）：提议不新增枚举值、另开双通道能力
+   字段表达全极化；被否——四个回放 schema 的极化字段为 int 槽位，加字段破坏 schema，而枚举值
+   零 schema 变更即可字节精确往返；且 `kUnpolarized` 已确立"极化工作状态"类别先例。
+   - **证据**：[evidence: schemas/replay/rir_session_replay.fbs]::scene_polarization
+   - **证据**：[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]::FullPolarizationSessionConfigRoundtripsByteExact
+3、**全极化对非极化 0 dB 功率守恒口径**（2026-09-03 否决）：物理上双通道功率相加可回收全部
+   非极化功率（0 dB）；被否——"任一侧非极化固定 3.0103 dB"公理保持不动（保守、改动最小），
+   守恒口径登记为开放议题 COMMON-OQ-12。
+   - **证据**：[evidence: src/common/electromagnetics/RfLinkBudget.cpp]::TryPolarizationLoss
+   - **证据**：[evidence: docs/common/open_questions.md]（COMMON-OQ-12）
+
+4、**旧 dBsm 极化输入与新四路复数结构并存**（2026-09-03 否决）：Stage A 建议
+   新旧并存保旧验收口径；用户裁定**拆旧**——旧 `RirPolarizationRcsSample`
+   （3 功率+1 相位+has_* 开关）、旧回放样本表、旧场景键一并移除，回放按
+   V1→V2 先例升 RIR3 显式拒绝旧录制。
+   - **证据**：[evidence: include/1q/remote_identification_radar/session/RirSceneTypes.h]::RirPolSMatrixSample
+   - **证据**：[evidence: schemas/replay/rir_replay.fbs]（root_type RirCycleReplayRecordV3 / "RIR3"）
+5、**方向角 ψ 算术平均**（2026-09-03 否决）：ψ 周期 180°，+89° 与 −89° 物理同向，
+   算术平均产生假 0°——冻结为圆统计（倍角向量平均，均值角+角度散布）；椭圆率 τ
+   无缠绕（±45° 为两个不同物理态），维持算术平均。
+   - **证据**：[evidence: src/remote_identification_radar/recognition/PolarizationStatsExtractor.cpp]::CircularMeanStdDeg
+   - **证据**：[evidence: tests/unit/remote_identification_radar/rir_polarization_stats_test.cpp]::RirPolarizationStatsTest.CircularStatsWraparoundGoldenValues

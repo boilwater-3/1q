@@ -10,6 +10,7 @@
 
 #include "1q/api.hpp"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "1q/sbirs_sensor/session/SbirsExternalCue.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 
 namespace sbirs_sensor {
@@ -39,6 +40,8 @@ struct ONEQ_API SbirsCycleResult {
   SbirsCycleStatus status{
       SbirsCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
+  std::vector<SbirsWideCueMeasurement> wide_cue_measurements{}; /**< 宽场候选量测（cross-cue
+      外发数据源，修订 7；仅归属/调试面，基线无消费者行为不变） */
 };
 
 }  // namespace session

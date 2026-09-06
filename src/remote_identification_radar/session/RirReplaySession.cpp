@@ -3,7 +3,7 @@
  * @brief 远程识别雷达 trace 回放实现。
  *
  * 蓝本：`src/airborne_radar/session/ArReplaySession.cpp`。回放侧按记录顺序重建
- * 会话、应用运行期补丁、逐周期执行，并以 `RirCycleReplayRecordV2` 字节比对判定分叉。
+ * 会话、应用运行期补丁、逐周期执行，并以 `RirCycleReplayRecordV3` 字节比对判定分叉。
  */
 
 #include "1q/remote_identification_radar/session/RirReplaySession.h"
@@ -106,8 +106,8 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
     *error = "RIR replay cycle_output arrived before cycle_input";
     return oneq::replay::ReplayTraceOutputStatus::kOtherFailure;
   }
-  if (event.payload_type != "RirCycleReplayRecordV2") {
-    *error = "RIR replay expected RirCycleReplayRecordV2 cycle_output";
+  if (event.payload_type != "RirCycleReplayRecordV3") {
+    *error = "RIR replay expected RirCycleReplayRecordV3 cycle_output";
     return oneq::replay::ReplayTraceOutputStatus::kOtherFailure;
   }
   RirCycleReplayRecord expected;
@@ -127,7 +127,7 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
   if (expected.result.output_frame.recognition_outputs.size() !=
       actual.result.output_frame.recognition_outputs.size()) {
     *actual_output =
-        "{\"payload_type\":\"RirCycleReplayRecordV2\",\"actual_size\":" +
+        "{\"payload_type\":\"RirCycleReplayRecordV3\",\"actual_size\":" +
         std::to_string(actual_payload.size()) + ",\"expected_recognition_output_count\":" +
         std::to_string(expected.result.output_frame.recognition_outputs.size()) +
         ",\"actual_recognition_output_count\":" +
@@ -135,9 +135,9 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
     *error = "RIR replay recognition output count divergence";
     return oneq::replay::ReplayTraceOutputStatus::kDivergence;
   }
-  *actual_output = "{\"payload_type\":\"RirCycleReplayRecordV2\",\"actual_size\":" +
+  *actual_output = "{\"payload_type\":\"RirCycleReplayRecordV3\",\"actual_size\":" +
                    std::to_string(actual_payload.size()) + "}";
-  *error = "RIR replay output divergence (RirCycleReplayRecordV2)";
+  *error = "RIR replay output divergence (RirCycleReplayRecordV3)";
   return oneq::replay::ReplayTraceOutputStatus::kDivergence;
 }
 

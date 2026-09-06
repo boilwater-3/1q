@@ -61,7 +61,8 @@
     "recognition_dwell_sec": 0.1,
     "scan_start_position": "kLeftTop",
     "scan_sequence": "kAzimuthFirst",
-    "step_scale": 1.0
+    "step_scale": 1.0,
+    "scan_window_deg": {"az_min_deg": -110.0, "az_max_deg": 110.0, "el_min_deg": 2.0, "el_max_deg": 85.0}
   },
   "policy": {
     "detection": {

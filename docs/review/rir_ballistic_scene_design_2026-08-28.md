@@ -4,7 +4,6 @@ Completed: 2026-08-28（场景三件套落地，运行验证回填见 §7）
 Date: 2026-08-28
 Authority: 场景设计（rir_ground_site_recognition 重新指定）
 Sources:
-  - docs/review/target_handle_trajectory_summary.md（客户 testInfoOutput 目标数据汇总）
   - 仓库根目录微信截图 4 张（2026-08-28，原始数据来源，未跟踪）
   - 用户裁定 2026-08-28（4 项，见 §1）
 Decisions:
@@ -20,7 +19,7 @@ Decisions:
 
 `rir_ground_site_recognition` 场景（当前：RIR 站点与机场同点 @ (30°N, 120°E)，目标为 F-16C/BGM-109 两架近距目标，400 周期）需按客户目标轨迹数据重新指定：RIR 站点定位于 **(-149.1746°E, 64.2878°N, 0 m)**（≈ 阿拉斯加 Clear AFS 弹道预警雷达站址，与真实站址偏差 <1 km），目标集换为客户 testInfoOutput 数据中的高速弹道目标（过极点、顶高 ~1562–1684 km、极速 ~6818–6965 m/s），识别对象从"近距空情目标"变为"极地过顶弹道中段目标"。
 
-数据来源：`docs/review/target_handle_trajectory_summary.md`（由客户 testInfoOutput 调试输出整理，size=12，截图覆盖 10 句柄，另有 2 句柄未见截图）。本文档为设计交付物；场景三件套落地（scene_data/scene_script 弹道类型、JSON、识别库、场景 md、运行验证）在设计批准后另行执行。
+数据来源：客户 testInfoOutput 调试输出整理的目标轨迹汇总（size=12，截图覆盖 10 句柄，另有 2 句柄未见截图；汇总文档已删档，见 git 历史）。本文档为设计交付物；场景三件套落地（scene_data/scene_script 弹道类型、JSON、识别库、场景 md、运行验证）在设计批准后另行执行。
 
 ## §1 异常数据剔除
 

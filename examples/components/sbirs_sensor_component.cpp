@@ -380,12 +380,37 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
   // 也向其探测池写适配记录，故直接取可变引用。
   auto& scene = static_cast<AppSceneState&>(world.scene_state());
+  // cross-cue（2026-09-01）：先接线转发信号，再把"上一周期及更早收到"的递话注入
+  // 会话（星→地→星固定一周期延迟：本周期收到的要等下一周期才消费）。
+  EnsureCrossCueRelayConnection(world);
+  if (cross_cue_enabled_) {
+    const double kRadToDeg = 57.2957795130823;
+    for (const SbirsCrossCueEvent& event : stashed_cue_events_) {
+      if (event.cycle >= scene.cycle) {
+        continue;  // 本周期才收到的：下一周期再消费
+      }
+      for (const SbirsCrossCueItem& item : event.cues) {
+        sbirs_sensor::session::SbirsExternalCue cue;
+        cue.target_id = item.target_id;
+        cue.source_satellite_entity_id = event.source_satellite_entity_id;
+        cue.source_position_ecef_m.x = event.satellite_ecef_x_m;
+        cue.source_position_ecef_m.y = event.satellite_ecef_y_m;
+        cue.source_position_ecef_m.z = event.satellite_ecef_z_m;
+        cue.azimuth_deg = static_cast<float>(item.azimuth_rad * kRadToDeg);
+        cue.elevation_deg = static_cast<float>(item.elevation_rad * kRadToDeg);
+        cue.range_m = item.range_m;
+        cue.cycle_index = static_cast<std::uint32_t>(event.cycle);
+        session_.SubmitExternalCue(cue);
+      }
+    }
+    stashed_cue_events_.clear();
+  }
   const sbirs_sensor::session::SbirsCycleInput input = BuildCycleInput(scene, dt_sec);
 
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
   if (!step_timing_logged_) {
-    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间性能测试", "SBIRS",
+    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间性能测试", "OPIR",
                           app::SteadyElapsedMs(step_begin));
     step_timing_logged_ = true;
   }
@@ -404,6 +429,49 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     PublishToGroundStation(world, scene, result);
   } else {
     AdaptDetections(world, scene, result);
+  }
+  if (cross_cue_enabled_) {
+    PublishCrossCue(world, scene, result);
+  }
+}
+
+void SbirsSensorComponent::EnsureCrossCueRelayConnection(World& world) {
+  if (cross_cue_enabled_ && !cross_cue_relay_connection_.connected()) {
+    cross_cue_relay_connection_ = world.signals().on_sbirs_cross_cue_relay.connect(
+        [this](const SbirsCrossCueEvent& event) {
+          if (event.source_satellite_entity_id == ground_station_source_id_) {
+            return;  // 自己发的：不回灌
+          }
+          stashed_cue_events_.push_back(event);
+        });
+  }
+}
+
+void SbirsSensorComponent::PublishCrossCue(
+    World& world, const AppSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
+  // ECI 测角 + 误差模型距离）；窄场精测不外发（修订 3 条 4：精测刷新不做）。
+  SbirsCrossCueEvent event;
+  event.cycle = scene.cycle;
+  event.source_satellite_entity_id = ground_station_source_id_;
+  event.satellite_ecef_x_m = own_position_ecef_m_.x;
+  event.satellite_ecef_y_m = own_position_ecef_m_.y;
+  event.satellite_ecef_z_m = own_position_ecef_m_.z;
+  constexpr double kRadPerDeg = 0.017453292519943295;
+  for (const sbirs_sensor::session::SbirsWideCueMeasurement& m :
+       result.wide_cue_measurements) {
+    if (m.target_id == 0U || !(m.measured_range_m > 0.0)) {
+      continue;  // 无归属或无有效距离：不递话
+    }
+    SbirsCrossCueItem item;
+    item.target_id = m.target_id;
+    item.azimuth_rad = static_cast<float>(m.azimuth_deg * kRadPerDeg);
+    item.elevation_rad = static_cast<float>(m.elevation_deg * kRadPerDeg);
+    item.range_m = m.measured_range_m;
+    event.cues.push_back(item);
+  }
+  if (!event.cues.empty()) {
+    world.signals().on_sbirs_cross_cue(event);
   }
 }
 
@@ -437,6 +505,9 @@ void SbirsSensorComponent::PublishDetectionEvents(
         }
       }
     }
+    const float snr_db = (sbirs_event.infrared_snr_linear > 0.0f)
+        ? static_cast<float>(10.0 * std::log10(static_cast<double>(sbirs_event.infrared_snr_linear)))
+        : -100.0f;
     if (sbirs_event.kind == SbirsDetectionEventKind::kUpdated) {
       // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -447,17 +518,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT_DUP(world, "sbirs_detection",
-                       "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                       "类型={} 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                        SbirsEventKindName(sbirs_event.kind),
                        static_cast<unsigned long long>(sbirs_event.detection_id),
                        static_cast<unsigned long long>(sbirs_event.target_id),
-                       sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                       snr_db, sbirs_event.az_deg);
     } else if (sbirs_event.kind == SbirsDetectionEventKind::kLost) {
       // 丢失事件携带细分原因（视场外/调度跳过/门失败…），区分扫描间隙与真丢失。
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -468,17 +539,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT(world, "sbirs_detection",
-                   "类型=丢失({}) 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                   "类型=丢失({}) 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                    LossReasonName(sbirs_event.reason),
                    static_cast<unsigned long long>(sbirs_event.detection_id),
                    static_cast<unsigned long long>(sbirs_event.target_id),
-                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                   snr_db, sbirs_event.az_deg);
     } else {
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string sbirs_detection_event_log_3 =
@@ -488,17 +559,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT(world, "sbirs_detection",
-                   "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                   "类型={} 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                    SbirsEventKindName(sbirs_event.kind),
                    static_cast<unsigned long long>(sbirs_event.detection_id),
                    static_cast<unsigned long long>(sbirs_event.target_id),
-                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                   snr_db, sbirs_event.az_deg);
     }
     world.signals().on_sbirs_detection(sbirs_event);
   }

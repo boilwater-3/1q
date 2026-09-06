@@ -399,6 +399,24 @@ GroundCoverageEnvelope ComputeGroundCoverageEnvelope(
   return envelope;
 }
 
+/**
+ * @brief 锁定目标的周期上下文暂存（单镜筒轮转用，2026-09-02）。
+ * @note 周期前段（几何/SNR 公共段）为锁定目标填充，周期末尾 NFOV 轮转阶段消费：
+ *       跟踪目标不再逐目标内联处理，上下文跨段传递。
+ */
+struct LockedTargetContext {
+  const SbirsEciSceneTarget* target{nullptr};
+  float azimuth_deg{0.0f};          ///< ECI 真值方位角
+  float elevation_deg{0.0f};        ///< ECI 真值俯仰角
+  float sensor_azimuth_deg{0.0f};   ///< 传感器系方位角（窄场几何门用）
+  float sensor_elevation_deg{0.0f}; ///< 传感器系俯仰角
+  double range_m{0.0};
+  double snr{0.0};
+  double signal_energy_j{0.0};
+  float omega_deg_per_sec{0.0f};
+  double max_detection_range_m{0.0};
+};
+
 SbirsPointingDisturbanceParameters DisturbanceParameters(
     const config::SbirsPointingDisturbanceConfig& config) {
   SbirsPointingDisturbanceParameters parameters;
@@ -415,7 +433,7 @@ SbirsPointingDisturbanceParameters DisturbanceParameters(
   return parameters;
 }
 
-bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int channel_id,
+bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator,
                            const SbirsPointingDisturbanceParameters& parameters,
                            const session::SbirsVector3M& nominal_los,
                            const SbirsBoresightChain& boresight_chain, float static_error_deg,
@@ -424,7 +442,8 @@ bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int chan
     return false;
   }
   SbirsPointingDisturbanceSample disturbance;
-  if (!coordinator.DisturbanceSample(channel_id, parameters, &disturbance)) {
+  // 单镜筒（2026-09-02）：通道扰动只有 0 号一份，宽场帧扰动与窄场指向共用其采样接口。
+  if (!coordinator.DisturbanceSample(0, parameters, &disturbance)) {
     return false;
   }
   // 阶段 2：实际指向 = 名义 LOS（传感器系 az/el）+ 共模/通道扰动 + 静态 settle 误差，
@@ -594,9 +613,8 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
       scan_wrap_span_deg_(config.session.mission.scan_span_deg),
       misalignment_total_deg_(DrawMisalignmentTotal(config.session.orientation.misalignment)),
-      nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
-      pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
-                            config.session.policy.pointing_disturbance.random_seed),
+      nfov_scheduler_(),
+      pointing_coordinator_(config.session.policy.pointing_disturbance.random_seed),
       wfov_measurement_random_source_(DeriveMeasurementSeed(
           config.session.policy.error_model.random_seed, kWfovMeasurementDomain)),
       estimated_measurement_random_source_(DeriveMeasurementSeed(
@@ -659,40 +677,11 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
     sensor_like_output_random_source_ = foundation::SbirsRandomSource(
         DeriveMeasurementSeed(seed, kSensorLikeOutputDomain));
   }
-  if (impact.nfov_channel_count_changed || impact.restart_pointing_disturbance) {
-    SbirsNfovScheduler next_scheduler(impact.next_nfov_channel_count);
-    SbirsNfovSchedulerSnapshot next_scheduler_snapshot;
-    const SbirsNfovSchedulerSnapshot previous_scheduler_snapshot = nfov_scheduler_.Capture();
-    for (const auto& entry : previous_scheduler_snapshot.target_to_channel) {
-      if (entry.second < impact.next_nfov_channel_count) {
-        next_scheduler_snapshot.target_to_channel.insert(entry);
-      }
-    }
-    next_scheduler.Restore(next_scheduler_snapshot);
-
-    SbirsPointingCoordinator next_pointing = pointing_coordinator_;
-    std::vector<std::uint64_t> released_target_ids;
-    if (next_pointing.Reconfigure(impact.next_nfov_channel_count,
-                                  config.session.policy.pointing_disturbance.random_seed,
-                                  impact.restart_pointing_disturbance, &released_target_ids)) {
-      bool state_is_consistent = true;
-      const SbirsPointingCoordinatorSnapshot next_pointing_snapshot = next_pointing.Capture();
-      for (const auto& entry : next_scheduler_snapshot.target_to_channel) {
-        const std::size_t channel_index = static_cast<std::size_t>(entry.second);
-        state_is_consistent =
-            state_is_consistent && channel_index < next_pointing_snapshot.channels.size() &&
-            next_pointing_snapshot.channels[channel_index].has_bound_target &&
-            next_pointing_snapshot.channels[channel_index].target_id == entry.first;
-      }
-      if (state_is_consistent) {
-        nfov_scheduler_ = next_scheduler;
-        pointing_coordinator_ = next_pointing;
-        for (const std::uint64_t target_id : released_target_ids) {
-          target_states_[target_id] = SbirsTargetState::kWideCandidate;
-          tracking_coordinator_.ReleaseTarget(target_id);
-        }
-      }
-    }
+  if (impact.restart_pointing_disturbance) {
+    // 指向扰动种子变更（runtime patch）：仅重启扰动流；单镜筒视线与逐目标簿记保持
+    //（历史多通道时代的按通道数重配已随 max_concurrent_nfov_locks 删除而消失）。
+    pointing_coordinator_.RestartDisturbance(
+        config.session.policy.pointing_disturbance.random_seed);
   }
   if (impact.reset_nis_gate_counts) {
     tracking_coordinator_.ResetNisGateCounts();
@@ -743,6 +732,14 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   }
 }
 
+// 星间 cross-cue 消息诊断码（2026-09-01）：非法引导消息丢弃时计入 issues 的 kInfo 码。
+// 管线局部常量：不进公开码表（include/1q 冻结面，见 sbirs-cross-cue 契约 out-of-scope）。
+constexpr char kExternalCueInvalid[] = "sbirs.external_cue_invalid";
+
+void SbirsPipeline::SubmitExternalCue(const session::SbirsExternalCue& cue) {
+  pending_external_cues_.push_back(cue);
+}
+
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
   SbirsPipelineResult result;
   const config::SbirsMissionConfig& mission = config_.session.mission;
@@ -772,8 +769,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
   // 方位基准（2026-08-31）：kEciAbsolute 基准恒 0（行为逐位不变）；kNadirRelative
   // 星下点方位 = atan2(-y, -x)（-卫星位置向量），由当周期位置现算并落成员——
-  // GEO 恒定；动轨道随位置漂移，配置免推算（契约见 docs/review/
-  // sbirs-nadir-stare-mode_stage_a_2026-08-31.md）。
+  // GEO 恒定；动轨道随位置漂移，配置免推算（契约记录已删档，见 git 历史）。
   float scan_azimuth_base_deg = 0.0f;
   scan_wrap_span_deg_ = mission.scan_span_deg;
   if (mission.scan_azimuth_reference == config::SbirsScanAzimuthReference::kNadirRelative) {
@@ -946,8 +942,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   // 往复式扫描推进（2026-08-31，牛耕式）：相位沿"行程坐标" travel ∈ [0, 2·wrap_span)
   // 推进 rate·dt 后折叠——去程 [0, span) 正走、回程 [span, 2span) 反走，到边反射
-  // 而非跳回起点（真实扫描机构行为；锯齿→往复的行为替换，契约见 docs/review/
-  // sbirs-scan-realism_stage_a_2026-08-31.md）。栅格行进=每次过界步进一行
+  // 而非跳回起点（真实扫描机构行为；锯齿→往复的行为替换，契约记录已删档、
+  // 见 git 历史）。栅格行进=每次过界步进一行
   // （crossings 计数与既有节奏同值：dt·rate=k·span 时相位/行序列与锯齿逐位重合）。
   // rate=0 时 travel 恒 0、腿恒初始方向——凝视行为逐位不变。
   const int row_count = ScanRowCount(mission);
@@ -1006,8 +1002,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     // 取经纬度包络），映射为规范顺序 4 角（西北、东北、东南、西南）；视场完全脱靶记 miss。
     // 中心为实际扫描中心与地球交点（指向太空记 miss）。驻留时间 = WFOV 方位视场 / 扫描速率
     // （目标被方位向扫描穿越视场所需时间；scan_rate=0 的退化配置记 0）。
-    // 中译：宽视场地面覆盖区事件（周期号、行内扫描相位与俯仰行号、视场中心 ECI 角、
-    //       覆盖四角与中心的经纬度、驻留时间、扫描速率）。
+    // 中译：宽视场地面覆盖区事件（周期号、卫星ID、覆盖四角与中心的经纬度、驻留时间）。
     // 标识：验收日志 E1——3.2.1.3.1/3.2.1.3.2.2"各扫描周期地面覆盖区域坐标与驻留
     //       时间"证据；圆球地球模型（椭球为已登记非目标，见 boundaries.md）。
     const float dwell_s = mission.scan_rate_deg_per_sec > 0.0f
@@ -1079,7 +1074,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     WriteSbirsCycleRunCount(sim_time_sec, input.cycle_index);
   }
 
-  const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
   // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：有效噪声与达标所需签名 =
   // wide_min·噪声/积分时间（见 ClassifyWfovSnrExclusionCause）。
   const config::SbirsHardwareConfig& hw = config_.session.hardware;
@@ -1089,10 +1083,118 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       policy.detection.wide_min_snr_linear * effective_noise_w /
       std::max(0.0f, hw.integration_time_sec);
   std::vector<SbirsCandidate> candidates;
+  // 锁定目标上下文暂存（单镜筒轮转）：周期前段填充、NFOV 阶段消费。
+  std::map<std::uint64_t, LockedTargetContext> locked_contexts;
   std::set<std::uint64_t> present_target_ids;
   for (const session::SbirsSceneTarget& target : input.scene) {
     present_target_ids.insert(target.target_id);
   }
+  // 星间 cross-cue（2026-09-01）：消费运行期注入的引导消息（修订 5：不进每帧输入）。
+  // 合法性：目标须在本周期场景内、角度有限、距离为正；非法整条丢弃并计 kInfo issue。
+  // 同目标多条取最后一条（同源逐周期刷新）；来源星 ECEF 按当周期 GMST 旋入 ECI。
+  std::map<std::uint64_t, session::SbirsExternalCue> external_cue_by_target;
+  std::map<std::uint64_t, session::SbirsVector3M> external_source_eci_by_target;
+  for (const session::SbirsExternalCue& cue : pending_external_cues_) {
+    const bool finite_bearing =
+        std::isfinite(cue.azimuth_deg) && std::isfinite(cue.elevation_deg);
+    if (!finite_bearing || !(cue.range_m > 0.0) ||
+        present_target_ids.count(cue.target_id) == 0U) {
+      result.issues.push_back(MakeExclusionIssue(
+          kExternalCueInvalid,
+          "dropped external cue: target_id=" + std::to_string(cue.target_id) +
+              " source_satellite_entity_id=" +
+              std::to_string(cue.source_satellite_entity_id) +
+              " range_m=" + std::to_string(static_cast<std::int64_t>(cue.range_m)),
+          session::SbirsIssueCause::kNone, -1));
+      continue;
+    }
+    const oneq::coordinate::EcefPositionM source_ecef{
+        cue.source_position_ecef_m.x, cue.source_position_ecef_m.y,
+        cue.source_position_ecef_m.z};
+    oneq::coordinate::EciPositionM source_eci;
+    if (!oneq::coordinate::TryEcefToEci(source_ecef, gmst_rad, &source_eci)) {
+      result.issues.push_back(MakeExclusionIssue(
+          kExternalCueInvalid,
+          "dropped external cue: source ECEF->ECI rotation failed, target_id=" +
+              std::to_string(cue.target_id),
+          session::SbirsIssueCause::kNone, -1));
+      continue;
+    }
+    external_cue_by_target[cue.target_id] = cue;
+    external_source_eci_by_target[cue.target_id] =
+        session::SbirsVector3M{source_eci.x_m, source_eci.y_m, source_eci.z_m};
+  }
+  pending_external_cues_.clear();
+  // 外部候选构造（cross-cue）：自星宽场门失败但有外部引导的目标由此进同一候选池。
+  // 三角化只用来源星带误差量测链（测角+距离+来源星位置），不触目标真值；连续命中
+  // 计数、调度排序（SNR↓→距离↑→ID↑，修订 4 同池同规则）与 NFOV 捕获/跟踪门全部
+  // 复用既有路径；引导来源只随候选/调度器记录，不进验收日志行。
+  const auto make_external_cue_candidate = [&](const SbirsEciSceneTarget& target,
+                                               float azimuth_deg, float elevation_deg,
+                                               double range_m, double snr,
+                                               double max_detection_range_m,
+                                               float omega_deg_per_sec) {
+    const session::SbirsExternalCue& cue = external_cue_by_target.at(target.target_id);
+    const session::SbirsVector3M& source_eci =
+        external_source_eci_by_target.at(target.target_id);
+    SbirsCandidate candidate;
+    candidate.target = &target;
+    candidate.azimuth_deg = azimuth_deg;
+    candidate.elevation_deg = elevation_deg;
+    candidate.range_m = range_m;
+    candidate.max_detection_range_m = max_detection_range_m;
+    const session::SbirsVector3M source_los = LosFromAzimuthElevation(cue.azimuth_deg,
+                                                                      cue.elevation_deg);
+    const session::SbirsVector3M target_est{
+        source_eci.x + source_los.x * cue.range_m, source_eci.y + source_los.y * cue.range_m,
+        source_eci.z + source_los.z * cue.range_m};
+    const session::SbirsVector3M own_los_est =
+        foundation::Subtract(target_est, satellite_position_eci_m);
+    candidate.measured_azimuth_deg = foundation::ComputeAzimuthDeg(own_los_est);
+    candidate.measured_elevation_deg = foundation::ComputeElevationDeg(own_los_est);
+    candidate.measured_range_m = foundation::Norm(own_los_est);
+    candidate.relative_angular_rate_deg_per_sec = omega_deg_per_sec;
+    candidate.cue_source_satellite_entity_id =
+        static_cast<int>(cue.source_satellite_entity_id);
+    // 与自星路径同款：本星视角三角化测角喂 cue 预测器（外推 narrow_cue_latency_s）。
+    const SbirsCuePrediction cue_prediction = cue_predictor_.Update(
+        target.target_id, candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
+        input.dt_sec, mission.narrow_cue_latency_s);
+    candidate.command_azimuth_deg = cue_prediction.command_azimuth_deg;
+    candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
+    const float cue_latency_s = mission.narrow_cue_latency_s;
+    if (cue_latency_s > 0.0f) {
+      session::SbirsVector3M predicted_position;
+      predicted_position.x = target.position_eci_m.x;
+      predicted_position.y = target.position_eci_m.y;
+      predicted_position.z = target.position_eci_m.z;
+      if (target.has_velocity_eci_m_per_s) {
+        predicted_position.x += target.velocity_eci_m_per_s.x * cue_latency_s;
+        predicted_position.y += target.velocity_eci_m_per_s.y * cue_latency_s;
+        predicted_position.z += target.velocity_eci_m_per_s.z * cue_latency_s;
+      }
+      session::SbirsVector3M predicted_satellite_position;
+      predicted_satellite_position.x =
+          satellite_position_eci_m.x + satellite_velocity_eci_m.x * cue_latency_s;
+      predicted_satellite_position.y =
+          satellite_position_eci_m.y + satellite_velocity_eci_m.y * cue_latency_s;
+      predicted_satellite_position.z =
+          satellite_position_eci_m.z + satellite_velocity_eci_m.z * cue_latency_s;
+      const session::SbirsVector3M predicted_los =
+          foundation::Subtract(predicted_position, predicted_satellite_position);
+      candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
+      candidate.delayed_truth_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
+    } else {
+      candidate.delayed_truth_azimuth_deg = azimuth_deg;
+      candidate.delayed_truth_elevation_deg = elevation_deg;
+    }
+    candidate.snr = snr;
+    candidates.push_back(candidate);
+    ++wfov_consecutive_hits_[target.target_id];
+    if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
+      target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+    }
+  };
   for (std::map<std::uint64_t, SbirsTargetState>::value_type& target_state : target_states_) {
     if (present_target_ids.count(target_state.first) == 0U) {
       log_acceptance_release(target_state.first, "scene_absent", 0U);
@@ -1178,17 +1280,32 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     float sensor_azimuth_deg = 0.0f;
     float sensor_elevation_deg = 0.0f;
     boresight_chain.SensorAzElOfEciVector(los, &sensor_azimuth_deg, &sensor_elevation_deg);
+    // 壳段气团（冻结契约 2026-09-02）：逐目标 τ_geo = τ_eff^X，X = 视线在大气壳内的
+    // 穿壳弦长÷垂直壳厚（100 km）；纯空间路径 X=0 → τ=1（不穿大气不再扣衰减）。
+    const float path_transmittance = environment::ResolveGeometricTransmittance(
+        environment_config, satellite_position_eci_m, target.position_eci_m);
     // 接收功率/信号能量中间变量透出（验收日志 E2/E5 消费；不影响 SNR 数值）。
     double received_power_w = 0.0;
     double signal_energy_j = 0.0;
-    const double snr =
-        ComputeSnr(config_, target, range_m, transmittance, &received_power_w, &signal_energy_j);
-    // 当前时刻最大探测距离（WFOV 门限反解）：随本周期 τ_eff/噪声快照与目标辐射强度
-    // 变化，进归属层诊断（不进 raw output）；SNR 门失败目标写入 issue 消息。
+    const double snr = ComputeSnr(config_, target, range_m, path_transmittance,
+                                  &received_power_w, &signal_energy_j);
+    // 当前时刻最大探测距离（WFOV 门限反解）：随本周期噪声快照、目标辐射强度与逐目标
+    // 路径透过率 τ_geo（壳段气团）变化，进归属层诊断（不进 raw output）；SNR 门失败
+    // 目标写入 issue 消息。
     const double max_detection_range_m = foundation::ComputeMaxDetectionRangeM(
         target.radiant_intensity_w_per_sr, hw.optical_aperture_m, hw.optical_transmission,
-        transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
+        path_transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
         effective_noise_w, policy.detection.wide_min_snr_linear);
+    if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+      // 中译：本星本周期对该目标的最大探测距离 d_max（米）。目标已进窄场锁定、由他星
+      //       递话而来、或暂在本星宽场视场门外时同样成行。
+      // 标识：验收判定标准 第6项。成行点在逐目标公共段，与目标状态机和候选来源无关，
+      //       故跟踪期不再缺行；d_max 为宽场门限反解值，不含窄场门限口径。
+      std::string dmax = "相对卫星ID=" + std::to_string(satellite_entity_id_);
+      dmax += " 目标ID=" + std::to_string(target.target_id);
+      dmax += " 相对卫星最大探测距离=" + oneq::logging::FormatF(max_detection_range_m, 1) + "m";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离计算功能测试", dmax);
+    }
 
     // 相对视线角速度：用于动态滞后误差与 R 矩阵（design 2.10）。相对速度 =
     // v_target（未提供时取 0）− v_satellite；卫星速度必填，因此目标静止时 ω 不为 0
@@ -1203,219 +1320,41 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const float omega_deg_per_sec_cached = foundation::ComputeRelativeAngularRateDegPerSec(
         los, relative_velocity_eci_m_per_s);
 
-    const bool in_wfov = InRectangularFov(sensor_azimuth_deg, sensor_elevation_deg,
-                                          actual_scan_azimuth_sensor_deg,
-                                          actual_scan_elevation_sensor_deg, mission.wide_field_fov_az_deg,
-                                          mission.wide_field_fov_el_deg);
-
     const SbirsTargetState state = target_states_[target.target_id];
     const bool is_locked = nfov_scheduler_.IsLocked(target.target_id) &&
                            (state == SbirsTargetState::kStrictTruthAssistedTracking ||
                             state == SbirsTargetState::kSensorLikeTruthAssistedTracking ||
                             state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
-      const int channel_id = nfov_scheduler_.ChannelOf(target.target_id);
-      const bool estimated_tracking = state == SbirsTargetState::kEstimatedTracking;
-      float command_azimuth_deg = azimuth_deg;
-      float command_elevation_deg = elevation_deg;
-      if (estimated_tracking) {
-        const SbirsTrackingPredictionResult prediction = tracking_coordinator_.PredictTarget(
-            target.target_id, policy, input.dt_sec, satellite_position_eci_m);
-        command_azimuth_deg = prediction.output_azimuth_deg;
-        command_elevation_deg = prediction.output_elevation_deg;
-      }
-      SbirsPointingActuatorConfig tracking_pointing_config;
-      tracking_pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
-      tracking_pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
-      // NFOV 命令（ECI az/el）旋入传感器系并限位钳制，再经链合成 ECI 单位向量驱动
-      // actuator（actuator 限速转向在 ECI 单位向量域，参考系无关，快照不变）。
-      float sensor_command_azimuth_deg = 0.0f;
-      float sensor_command_elevation_deg = 0.0f;
-      boresight_chain.SensorAzElOfEciVector(
-          LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg),
-          &sensor_command_azimuth_deg, &sensor_command_elevation_deg);
-      SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
-                                             &sensor_command_azimuth_deg,
-                                             &sensor_command_elevation_deg);
-      const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.AdvanceTracking(
-          channel_id, target.target_id,
-          boresight_chain.EciLosOfSensorPointing(sensor_command_azimuth_deg,
-                                                 sensor_command_elevation_deg),
-          input.dt_sec, tracking_pointing_config);
-      float actual_pointing_azimuth_deg = 0.0f;
-      float actual_pointing_elevation_deg = 0.0f;
-      const bool pointing_available = EffectiveNfovPointing(
-          pointing_coordinator_, channel_id, disturbance_parameters, pointing_result.current_los,
-          boresight_chain, mission.narrow_pointing_settle_error_deg, &actual_pointing_azimuth_deg,
-          &actual_pointing_elevation_deg);
-      const bool geometry_gate_passed =
-          pointing_result.status != SbirsPointingAdvanceStatus::kRejected && pointing_available &&
-          InRectangularFov(sensor_azimuth_deg, sensor_elevation_deg, actual_pointing_azimuth_deg,
-                           actual_pointing_elevation_deg, mission.narrow_field_fov_az_deg,
-                           mission.narrow_field_fov_el_deg);
-      const bool snr_gate_passed = snr >= policy.detection.narrow_min_snr_linear;
-      const bool tracking_gate_passed = geometry_gate_passed && snr_gate_passed;
-      const unsigned int gate_failure_count = pointing_coordinator_.RecordTrackingGateResult(
-          target.target_id, tracking_gate_passed);
-      const bool lost_due_to_tracking_gate =
-          !tracking_gate_passed &&
-          gate_failure_count >= policy.tracking.nfov_tracking_gate_loss_cycles;
-
-      SbirsPipelineDetection detection;
-      detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_rad = ToEciAzimuthRad(command_azimuth_deg);
-      detection.record.elevation_rad = ToEciElevationRad(command_elevation_deg);
-      detection.record.infrared_snr_linear = static_cast<float>(snr);
-      detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
-      detection.record.detected = tracking_gate_passed;
-      detection.attribution.detection_id = detection.record.detection_id;
-      detection.attribution.target_id = target.target_id;
-      detection.attribution.target_name = target.target_name;
-      detection.attribution.estimated_range_m = static_cast<float>(range_m);
-      detection.attribution.max_detection_range_m = static_cast<float>(max_detection_range_m);
-      detection.attribution.tracking_source = TrackingSourceForState(state);
-      detection.attribution.nfov_channel_id = channel_id;
-      detection.attribution.has_nfov_tracking_diagnostics = true;
-      detection.attribution.nfov_pointing_error_deg = foundation::AngularSeparationDeg(
-          azimuth_deg, elevation_deg, actual_pointing_azimuth_deg,
-          actual_pointing_elevation_deg);
-      detection.attribution.nfov_geometry_gate_passed = geometry_gate_passed;
-      detection.attribution.nfov_snr_gate_passed = snr_gate_passed;
-      detection.attribution.nfov_tracking_gate_failure_count = gate_failure_count;
-      detection.attribution.nfov_tracking_coasting =
-          !tracking_gate_passed && !lost_due_to_tracking_gate;
-
-      bool lost_due_to_estimation_nis = false;
-      SbirsTrackingUpdateResult tracking_result;
-      // 高刷新率帧数（2026-08-31 窄场高精度建模）：NFOV 跟踪段每周期 frame_rate_hz×dt
-      // 帧独立量测融合（随机 1-σ 1/√N），归属层透出帧数与单帧/融合 σ。
-      const int nfov_frame_count =
-          std::max(1, static_cast<int>(std::lround(static_cast<double>(
-                          mission.frame_rate_hz) * static_cast<double>(input.dt_sec))));
-      const double nfov_frame_sigma_deg =
-          foundation::ResolveEffectiveAngularSigmaDeg(policy.error_model);
-      const double nfov_fused_sigma_deg =
-          nfov_frame_sigma_deg / std::sqrt(static_cast<double>(nfov_frame_count));
-      detection.attribution.nfov_frame_count = nfov_frame_count;
-      detection.attribution.nfov_frame_sigma_deg =
-          static_cast<float>(nfov_frame_sigma_deg);
-      detection.attribution.nfov_fused_sigma_deg =
-          static_cast<float>(nfov_fused_sigma_deg);
-      if (tracking_gate_passed && estimated_tracking) {
-        tracking_result = tracking_coordinator_.CorrectTarget(
-            target.target_id, policy, &estimated_measurement_random_source_, azimuth_deg,
-            elevation_deg, range_m,
-            omega_deg_per_sec_cached, satellite_position_eci_m, nfov_frame_count);
-        detection.record.azimuth_rad = ToEciAzimuthRad(tracking_result.output_azimuth_deg);
-        detection.record.elevation_rad = ToEciElevationRad(tracking_result.output_elevation_deg);
-        detection.attribution.has_estimation_nis = tracking_result.has_estimation_nis;
-        detection.attribution.estimation_nis = tracking_result.estimation_nis;
-        detection.attribution.estimation_nis_gate_exceeded =
-            tracking_result.estimation_nis_gate_exceeded;
-        lost_due_to_estimation_nis = tracking_result.lost_due_to_estimation_nis;
-        detection.record.detected = !lost_due_to_estimation_nis;
-      } else if (tracking_gate_passed &&
-                 state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
-        const foundation::SbirsFusedBearingResult fused_bearing =
-            foundation::ApplyAngularErrorModelFused(
-                policy.error_model, &sensor_like_output_random_source_, azimuth_deg, elevation_deg,
-                range_m, omega_deg_per_sec_cached, nfov_frame_count);
-        detection.record.azimuth_rad = ToEciAzimuthRad(fused_bearing.bearing.azimuth_deg);
-        detection.record.elevation_rad = ToEciElevationRad(fused_bearing.bearing.elevation_deg);
-        detection.attribution.estimated_range_m =
-            static_cast<float>(fused_bearing.bearing.range_m);
-      } else if (!tracking_gate_passed && estimated_tracking) {
-        tracking_coordinator_.MarkMeasurementUnavailable(target.target_id);
-      }
-      if (lost_due_to_estimation_nis) {
-        detection.attribution.capture_failure_reason =
-            attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
-        log_acceptance_release(target.target_id, "nis_gate_lost", gate_failure_count);
-        target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
-        nfov_scheduler_.Release(target.target_id);
-        pointing_coordinator_.ReleaseTarget(target.target_id);
-        tracking_coordinator_.ReleaseTarget(target.target_id);
-      } else if (lost_due_to_tracking_gate) {
-        detection.attribution.capture_failure_reason =
-            attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost;
-        log_acceptance_release(target.target_id, "tracking_gate_lost", gate_failure_count);
-        target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
-        nfov_scheduler_.Release(target.target_id);
-        pointing_coordinator_.ReleaseTarget(target.target_id);
-        tracking_coordinator_.ReleaseTarget(target.target_id);
-      }
-      // 焦平面脱靶量：目标传感器系角与实际指向角的逐轴差经 f·tan 映射（米+像素）；
-      // 焦距/像元间距非正时（配置校验已拦截）跳过。随归属记录透出（验收判定标准
-      // 第26项 脱靶量数据源，精度评估层消费），验收行在此复用同一份计算。
-      foundation::SbirsFocalPlaneOffset focal_offset;
-      const bool focal_valid = foundation::ComputeFocalPlaneOffset(
-          hw.focal_length_m, hw.detector_pixel_pitch_m,
-          AzimuthDelta(sensor_azimuth_deg, actual_pointing_azimuth_deg),
-          sensor_elevation_deg - actual_pointing_elevation_deg, &focal_offset);
-      if (focal_valid) {
-        detection.attribution.has_focal_plane_offset = true;
-        detection.attribution.focal_plane_offset_x_m = focal_offset.x_m;
-        detection.attribution.focal_plane_offset_y_m = focal_offset.y_m;
-      }
-      if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场跟踪事件（目标编号、通道、跟踪模式、实际指向与目标角、指向误差、
-        //       焦平面脱靶量、输出角定位角度误差、SNR 与信号能量、几何/SNR 门结果、
-        //       失败计数、滑行标志、NIS）。
-        // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"、
-        //       3.2.1.6.3 红外定位角度误差（跟踪段）证据；输出角误差在滤波/误差注入
-        //       全部完成后取最终输出角 − 真值角（方位最短角差）。
-        const double az_err = AzimuthDelta(
-            static_cast<float>(detection.record.azimuth_rad * 57.29577951308232), azimuth_deg);
-        const double el_err =
-            static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg;
-        std::string nfov = "卫星ID=" + std::to_string(satellite_entity_id_);
-        nfov += " 目标ID=" + std::to_string(target.target_id);
-        if (focal_valid) {
-          nfov += " 脱靶量m=(" + oneq::logging::FormatF(focal_offset.x_m, 6) + "," +
-                  oneq::logging::FormatF(focal_offset.y_m, 6) + ")";
-          nfov += " 脱靶量像素=(" + oneq::logging::FormatF(focal_offset.x_pixels, 2) + "," +
-                  oneq::logging::FormatF(focal_offset.y_pixels, 2) + ")";
-        }
-        nfov += " 跟踪状态=";
-        nfov += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
-        nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
-        nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
-        // 高刷新率高精度数据输出（2026-08-31 建模）：每周期帧数 + 单帧/融合 1-σ。
-        nfov += " 帧数=" + std::to_string(nfov_frame_count);
-        nfov += " 单帧σ=" + oneq::logging::FormatSci(nfov_frame_sigma_deg) + "deg";
-        nfov += " 融合σ=" + oneq::logging::FormatSci(nfov_fused_sigma_deg) + "deg";
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测功能测试", nfov);
-        // 规范口径（验收判定标准 第14项·其三）：窄视场精确状态序列——同一目标逐周期
-        // 的窄场角（ECI rad）、跟踪状态与 SNR。
-        std::string joint_track = "卫星ID=" + std::to_string(satellite_entity_id_);
-        joint_track += " 目标ID=" + std::to_string(target.target_id);
-        joint_track += " 窄场方位/俯仰(ECI)=(" +
-                       oneq::logging::FormatF(detection.record.azimuth_rad, 8) + "," +
-                       oneq::logging::FormatF(detection.record.elevation_rad, 8) + ")rad";
-        joint_track += " 跟踪状态=";
-        joint_track += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
-        joint_track += " SNR=" + oneq::logging::FormatF(snr, 3);
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-                              joint_track);
-        WriteSbirsAngleError(satellite_entity_id_, sim_time_sec, input.cycle_index,
-                             target.target_id, az_err, el_err,
-                             detection.record.azimuth_rad * 57.29577951308232,
-                             detection.record.elevation_rad * 57.29577951308232);
-        if (tracking_result.has_angle_rate) {
-          // 中译：角度域 KF 后验（滤波方位/俯仰及其变化率）；不进公开检测记录。
-          // 标识：实验后端 kAngleCvKf 的用例 16 状态估计验收行。
-          WriteSbirsAngleStateEstimate(
-              sim_time_sec, input.cycle_index, target.target_id,
-              tracking_result.output_azimuth_deg, tracking_result.output_elevation_deg,
-              tracking_result.azimuth_rate_rad_per_s * 57.29577951308232,
-              tracking_result.elevation_rate_rad_per_s * 57.29577951308232);
-        }
-      }
-      result.detections.push_back(detection);
+      // 单镜筒轮转（2026-09-02）：锁定目标不在此内联处理——几何/SNR 上下文暂存，
+      // 交由周期末尾的 NFOV 分时轮转阶段统一量测（同帧免费多跟在彼处判定）。
+      LockedTargetContext& context = locked_contexts[target.target_id];
+      context.target = &target;
+      context.azimuth_deg = azimuth_deg;
+      context.elevation_deg = elevation_deg;
+      context.sensor_azimuth_deg = sensor_azimuth_deg;
+      context.sensor_elevation_deg = sensor_elevation_deg;
+      context.range_m = range_m;
+      context.snr = snr;
+      context.signal_energy_j = signal_energy_j;
+      context.omega_deg_per_sec = omega_deg_per_sec_cached;
+      context.max_detection_range_m = max_detection_range_m;
       continue;
     }
 
+    const bool in_wfov = InRectangularFov(sensor_azimuth_deg, sensor_elevation_deg,
+                                          actual_scan_azimuth_sensor_deg,
+                                          actual_scan_elevation_sensor_deg, mission.wide_field_fov_az_deg,
+                                          mission.wide_field_fov_el_deg);
+
     if (!in_wfov) {
+      // cross-cue 旁路（2026-09-01）：自星宽场几何门外但有外部引导 → 构造外部候选，
+      // 不走排除/释放（修订 3 条 1：发现星自家链路不变，此处只补受话星路径）。
+      if (external_cue_by_target.count(target.target_id) != 0U) {
+        make_external_cue_candidate(target, azimuth_deg, elevation_deg, range_m, snr,
+                                    max_detection_range_m, omega_deg_per_sec_cached);
+        continue;
+      }
       // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：视场门按越界轴细分（az/el/both），并补相对扫描中心的差值
       //（与 InRectangularFov 同基准、同参考系：传感器系；半视场为门限）。
@@ -1452,19 +1391,26 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
     if (snr < policy.detection.wide_min_snr_linear) {
+      // cross-cue 旁路（2026-09-01）：自星宽场 SNR 门外但有外部引导 → 构造外部候选。
+      // （外部路径的 SNR 语义：候选优先级仍用物理真值链 SNR；捕获门在 NFOV 段另判。）
+      if (external_cue_by_target.count(target.target_id) != 0U) {
+        make_external_cue_candidate(target, azimuth_deg, elevation_deg, range_m, snr,
+                                    max_detection_range_m, omega_deg_per_sec_cached);
+        continue;
+      }
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：SNR 门为聚合门，反事实判定主因（见 ClassifyWfovSnrExclusionCause；
       // signature_required 已在循环外计算）。
       const double signature_actual = std::max(0.0, target.radiant_intensity_w_per_sr);
       const session::SbirsIssueCause snr_cause = ClassifyWfovSnrExclusionCause(
-          range_m, transmittance, signature_actual, snr_signature_required);
+          range_m, path_transmittance, signature_actual, snr_signature_required);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetSnrBelowThreshold,
           "target_id=" + std::to_string(target.target_id) +
               "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
               FormatSnr(policy.detection.wide_min_snr_linear) + " range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " transmittance=" +
-              FormatSnr(transmittance) + " d_max_m=" +
+              FormatSnr(path_transmittance) + " d_max_m=" +
               std::to_string(static_cast<std::int64_t>(max_detection_range_m)),
           snr_cause,
           static_cast<std::ptrdiff_t>(target_idx)));
@@ -1528,13 +1474,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     candidate.snr = snr;
     candidates.push_back(candidate);
+    // cross-cue 外发数据源（修订 7）：本星自星宽场候选的带误差量测（与 E2 宽场疑似
+    // 事件同源同量测）。外部引导候选不重复进此列表（受话不递话）。
+    // VS2015/C++11：带 NSDMI 的结构体非聚合，逐成员赋值（同组件层 SbirsExternalCue）。
+    session::SbirsWideCueMeasurement wide_cue_measurement;
+    wide_cue_measurement.target_id = target.target_id;
+    wide_cue_measurement.azimuth_deg = candidate.measured_azimuth_deg;
+    wide_cue_measurement.elevation_deg = candidate.measured_elevation_deg;
+    wide_cue_measurement.measured_range_m = candidate.measured_range_m;
+    result.wide_cue_measurements.push_back(wide_cue_measurement);
     // 宽窄切换前置条件（3.2.1.3.2.1）：WFOV 四门全部通过计一次连续命中；
     // 门失败/目标消失分支已清零，进入跟踪时在捕获处清零。
     ++wfov_consecutive_hits_[target.target_id];
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 中译：宽视场疑似目标事件（量测角/定位误差/距离/SNR/能量/最大探测距离/LLA）。
-      // 标识：验收日志 E2——验收判定标准 第5/6/7/11项 逐目标行；az/el_error =
-      // 带误差量测角 − 真值角（方位最短角差）。
+      // 中译：宽视场疑似目标事件（量测角/定位误差/距离/SNR/能量/LLA）。
+      // 标识：验收判定标准 第5/11项 逐目标行（第6项已上移至逐目标公共段、第7项改由
+      //       输出帧统一登记，见 register_detectability）；
+      //       az/el_error = 带误差量测角 − 真值角（方位最短角差）。
       const double az_err = AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg);
       const double el_err = candidate.measured_elevation_deg - elevation_deg;
       const double kDegToRad = 0.017453292519943295;
@@ -1546,18 +1502,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                oneq::logging::FormatF(candidate.measured_azimuth_deg * kDegToRad, 8) + "," +
                oneq::logging::FormatF(candidate.measured_elevation_deg * kDegToRad, 8) + ")rad";
       SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "探测角度计算功能测试", angle);
-      // 第6项 最大探测距离：相对哪颗卫星的最大探测距离（相对卫星ID）。
-      std::string dmax = "相对卫星ID=" + std::to_string(satellite_entity_id_);
-      dmax += " 目标ID=" + std::to_string(target.target_id);
-      dmax += " 相对卫星最大探测距离=" + oneq::logging::FormatF(max_detection_range_m, 1) + "m";
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离计算功能测试", dmax);
-      // 第7项（修改）目标可探测性与动态参数：双星定位时同一目标单行（位置 LLA +
-      // 两颗相对卫星ID/斜距/量测角），单星候选行顺延——注册表见
-      // SbirsAcceptanceRecords.cpp（WriteSbirsTargetDetectability）。
-      WriteSbirsTargetDetectability(
-          satellite_entity_id_, sim_time_sec, input.cycle_index, target.target_id, range_m,
-          candidate.measured_azimuth_deg * kDegToRad, candidate.measured_elevation_deg * kDegToRad,
-          satellite_ecef.x_m, satellite_ecef.y_m, satellite_ecef.z_m, gmst_rad);
       // 第11项 红外预警卫星大幅面扫描与探测：扫描幅宽（ECI rad）/目标辐射能量链/
       // SNR/探测概率/检测标志（评审 2026-08-26 条2：Pd 复用雷达公共层 Marcum Q 模型
       // （Swerling0 单脉冲），Pfa 由宽场门限系数 k 按高斯尾部 Pfa=0.5·erfc(k/√2) 反推）。
@@ -1566,10 +1510,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                 oneq::logging::FormatF(mission.wide_field_fov_az_deg * kDegToRad, 6) + "," +
                 oneq::logging::FormatF(mission.wide_field_fov_el_deg * kDegToRad, 6) + ")rad";
       energy += " 目标ID=" + std::to_string(target.target_id);
+      const double snr_db_wide = 10.0 * std::log10(std::max(snr, 1.0e-12));
       energy += " 接收功率=" + oneq::logging::FormatSci(received_power_w) + "W";
       energy += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
-      energy += " SNR=" + oneq::logging::FormatF(snr, 3);
-      const double snr_db_wide = 10.0 * std::log10(std::max(snr, 1.0e-12));
+      energy += " SNR(dB)=" + oneq::logging::FormatF(snr_db_wide, 3) + "dB";
       const double pfa_wide =
           0.5 * std::erfc(static_cast<double>(policy.detection.wide_min_snr_linear) /
                           std::sqrt(2.0));
@@ -1590,20 +1534,47 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   }
 
   // 评审 2026-08-26 条3 + 验收判定标准 第14项·其二：宽场疑似目标完整列表（规范口径：
-  // 只写 卫星ID 与列表，不写 连续命中/序列确认）。
-  if (SBIRS_ACCEPTANCE_LOG_ENABLED() && !candidates.empty()) {
+  // 只写 卫星ID 与列表，不写 连续命中/序列确认；仅本星宽场检出成行——cross-cue 外部
+  // 候选不是本星宽场检出，检出为空时整行不写，不写空列表行）。
+  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     std::string suspect_ids;
     for (const SbirsCandidate& candidate : candidates) {
+      if (candidate.cue_source_satellite_entity_id >= 0) {
+        continue;  // cross-cue 外部候选不是本星宽场检出，不进宽场疑似列表（验收行口径不变）
+      }
       if (!suspect_ids.empty()) {
         suspect_ids += ",";
       }
       suspect_ids += std::to_string(candidate.target->target_id);
     }
-    std::string joint_list = "卫星ID=" + std::to_string(satellite_entity_id_) +
-                             " 宽场疑似列表=[" + suspect_ids + "]";
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-                          joint_list);
+    if (!suspect_ids.empty()) {
+      std::string joint_list = "卫星ID=" + std::to_string(satellite_entity_id_) +
+                               " 宽场疑似列表=[" + suspect_ids + "]";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                            joint_list);
+    }
   }
+
+  // 第7项（修改）目标可探测性与动态参数：登记点在本星输出帧——宽场候选、窄场锁定
+  // 跟踪、cross-cue 引导的检出统一覆盖（2026-09-02 裁定方案A：跟踪期与递话路径同样
+  // 登记，否则双星行只在两星都未锁定的首拍才可能凑齐）。斜距取归属层 range，量测角
+  // 取输出角（ECI rad，与窄场状态行同口径）。双星定位行/单星顺延行的拼装见
+  // SbirsAcceptanceRecords（WriteSbirsTargetDetectability）。
+  const auto register_detectability = [&]() {
+    if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+      return;
+    }
+    for (const SbirsPipelineDetection& detection : result.detections) {
+      if (!detection.record.detected) {
+        continue;  // 捕获失败/调度跳过等非检出记录不成行
+      }
+      WriteSbirsTargetDetectability(
+          satellite_entity_id_, sim_time_sec, input.cycle_index,
+          detection.attribution.target_id, detection.attribution.estimated_range_m,
+          detection.record.azimuth_rad, detection.record.elevation_rad, satellite_ecef.x_m,
+          satellite_ecef.y_m, satellite_ecef.z_m, gmst_rad);
+    }
+  };
 
   if (mission.work_mode == config::SbirsWorkMode::kWideSearch) {
     for (const SbirsCandidate& candidate : candidates) {
@@ -1618,22 +1589,31 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = candidate.target->target_id;
       detection.attribution.target_name = candidate.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+      detection.attribution.measured_range_m = static_cast<float>(candidate.measured_range_m);
       detection.attribution.max_detection_range_m =
           static_cast<float>(candidate.max_detection_range_m);
+      detection.attribution.cue_source_satellite_entity_id =
+          candidate.cue_source_satellite_entity_id;
       detection.attribution.nfov_channel_id = -1;
       result.detections.push_back(detection);
     }
+    register_detectability();
     log_cycle_summary();
     return result;
   }
 
+  // ===== NFOV 单镜筒分时轮转阶段（2026-09-02，冻结契约 sbirs-nfov-shared-pointing） =====
+  // 窄场只有一个镜筒：锁定集合无配置上限，每周期按固定顺序轮转服务一个目标（转动
+  // 期间帧作废，稳定后按剩余时长计帧）；当前视场内的其余锁定目标同帧免费多跟（共享
+  // 同一批稳定帧）；分离目标轮空周期记门失败，连续超过 nfov_tracking_gate_loss_cycles
+  // 即丢锁释放——可同时保持的精跟条数由轮转物理涌现，不再由配置通道数决定。
   SbirsPointingActuatorConfig pointing_config;
   pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
   pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
   std::set<std::uint64_t> processed_target_ids;
   std::set<std::uint64_t> blocked_target_ids;
 
-  const auto append_wfov_detection = [&](const SbirsCandidate& candidate, int channel_id) {
+  const auto append_wfov_detection = [&](const SbirsCandidate& candidate) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
     detection.record.azimuth_rad = ToEciAzimuthRad(candidate.measured_azimuth_deg);
@@ -1645,10 +1625,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    detection.attribution.nfov_channel_id = channel_id;
+    detection.attribution.measured_range_m = static_cast<float>(candidate.measured_range_m);
+    detection.attribution.cue_source_satellite_entity_id =
+        candidate.cue_source_satellite_entity_id;
+    detection.attribution.nfov_channel_id = 0;
     result.detections.push_back(detection);
   };
-  const auto append_acquisition_failure = [&](const SbirsCandidate& candidate, int channel_id,
+  const auto append_acquisition_failure = [&](const SbirsCandidate& candidate,
                                               attribution::SbirsCaptureFailureReason reason) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
@@ -1661,210 +1644,16 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    detection.attribution.nfov_channel_id = channel_id;
+    detection.attribution.cue_source_satellite_entity_id =
+        candidate.cue_source_satellite_entity_id;
+    detection.attribution.nfov_channel_id = 0;
     detection.attribution.capture_failure_reason = reason;
     result.detections.push_back(detection);
   };
-  const auto advance_pointing = [&](const SbirsCandidate& selected, int channel_id) {
-    const std::uint64_t target_id = selected.target->target_id;
-    // NFOV 命令（cue 预测 ECI az/el）旋入传感器系并限位钳制，再经链合成 ECI 单位向量
-    // 驱动 actuator；限位够不到时 actuator 停在限位边缘（AR 同款静默钳制语义）。
-    float sensor_command_azimuth_deg = 0.0f;
-    float sensor_command_elevation_deg = 0.0f;
-    boresight_chain.SensorAzElOfEciVector(
-        LosFromAzimuthElevation(selected.command_azimuth_deg, selected.command_elevation_deg),
-        &sensor_command_azimuth_deg, &sensor_command_elevation_deg);
-    SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
-                                           &sensor_command_azimuth_deg,
-                                           &sensor_command_elevation_deg);
-    const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.Advance(
-        channel_id, target_id,
-        boresight_chain.EciLosOfSensorPointing(sensor_command_azimuth_deg,
-                                               sensor_command_elevation_deg),
-        input.dt_sec, pointing_config);
-    processed_target_ids.insert(target_id);
-    if (pointing_result.status == SbirsPointingAdvanceStatus::kSlewing) {
-      if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——转向中（卫星、目标、通道、窄场指向命令角、SNR）。
-        // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 指向/捕获过程的"转向"中间态证据；
-        //       窄场角按规范口径写 ECI 弧度（cue 预测命令角）。
-        constexpr double kDegToRad = 0.017453292519943295;
-        SBIRS_ACCEPTANCE_ITEM(
-            sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-            "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
-                std::to_string(target_id) + " 窄场通道=" + std::to_string(channel_id) +
-                " 捕获=转向中 窄场方位/俯仰(ECI)=(" +
-                oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
-                oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) +
-                ")rad SNR=" + oneq::logging::FormatF(selected.snr, 3));
-      }
-      append_wfov_detection(selected, channel_id);
-      return;
-    }
-    if (pointing_result.status == SbirsPointingAdvanceStatus::kTimedOut) {
-      log_acceptance_release(target_id, "pointing_timeout", 0U);
-      nfov_scheduler_.Release(target_id);
-      target_states_[target_id] = SbirsTargetState::kWideCandidate;
-      blocked_target_ids.insert(target_id);
-      if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——指向超时失败（卫星、目标、通道）。
-        // 标识：验收日志 E4——3.2.1.3.2.1 指向超时回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-                              "卫星ID=" + std::to_string(satellite_entity_id_) +
-                                  " 目标ID=" + std::to_string(target_id) +
-                                  " 窄场通道=" + std::to_string(channel_id) + " 捕获=超时失败");
-      }
-      append_acquisition_failure(selected, channel_id,
-                                 attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
-      return;
-    }
-    if (pointing_result.status == SbirsPointingAdvanceStatus::kRejected) {
-      log_acceptance_release(target_id, "pointing_rejected", 0U);
-      nfov_scheduler_.Release(target_id);
-      pointing_coordinator_.ReleaseTarget(target_id);
-      target_states_[target_id] = SbirsTargetState::kWideCandidate;
-      blocked_target_ids.insert(target_id);
-      if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——指向被拒失败（卫星、目标、通道）。
-        // 标识：验收日志 E4——3.2.1.3.2.1 指向拒绝回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-                              "卫星ID=" + std::to_string(satellite_entity_id_) +
-                                  " 目标ID=" + std::to_string(target_id) +
-                                  " 窄场通道=" + std::to_string(channel_id) + " 捕获=指向被拒");
-      }
-      append_acquisition_failure(selected, channel_id,
-                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
-      return;
-    }
 
-    SbirsNfovAcquisitionRequest acquisition_request;
-    // 首捕窗口判定改在传感器系：delayed truth（延迟真值 ECI los）经链转换；
-    // 命令 = 实际指向（名义 LOS 传感器系 + 扰动）的传感器系 az/el。
-    boresight_chain.SensorAzElOfEciVector(
-        LosFromAzimuthElevation(selected.delayed_truth_azimuth_deg,
-                                selected.delayed_truth_elevation_deg),
-        &acquisition_request.delayed_truth_azimuth_deg,
-        &acquisition_request.delayed_truth_elevation_deg);
-    if (!EffectiveNfovPointing(pointing_coordinator_, channel_id, disturbance_parameters,
-                               pointing_result.current_los, boresight_chain, 0.0f,
-                               &acquisition_request.command_azimuth_deg,
-                               &acquisition_request.command_elevation_deg)) {
-      log_acceptance_release(target_id, "pointing_unavailable", 0U);
-      nfov_scheduler_.Release(target_id);
-      pointing_coordinator_.ReleaseTarget(target_id);
-      target_states_[target_id] = SbirsTargetState::kWideCandidate;
-      blocked_target_ids.insert(target_id);
-      append_acquisition_failure(selected, channel_id,
-                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
-      return;
-    }
-    acquisition_request.pointing_settle_error_deg = mission.narrow_pointing_settle_error_deg;
-    acquisition_request.field_of_view_azimuth_deg = mission.narrow_field_fov_az_deg;
-    acquisition_request.field_of_view_elevation_deg = mission.narrow_field_fov_el_deg;
-    acquisition_request.snr = selected.snr;
-    acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
-    const bool captured = IsNfovAcquisitionEligible(acquisition_request);
-    if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 几何门余量计算保留在捕获判定函数内；此处只写捕获结论（窄场角按规范口径写
-      // ECI 弧度——cue 预测命令角）。
-      constexpr double kDegToRad = 0.017453292519943295;
-      SBIRS_ACCEPTANCE_ITEM(
-          sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
-          "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
-              std::to_string(target_id) + " 窄场通道=" + std::to_string(channel_id) +
-              " 捕获=" + std::string(captured ? "成功" : "失败") + " 窄场方位/俯仰(ECI)=(" +
-              oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
-              oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) + ")rad SNR=" +
-              oneq::logging::FormatF(selected.snr, 3));
-    }
-    if (captured) {
-      if (!pointing_coordinator_.PromoteToTracking(target_id)) {
-        log_acceptance_release(target_id, "promote_failed", 0U);
-        nfov_scheduler_.Release(target_id);
-        pointing_coordinator_.ReleaseTarget(target_id);
-        target_states_[target_id] = SbirsTargetState::kWideCandidate;
-        blocked_target_ids.insert(target_id);
-        append_acquisition_failure(
-            selected, channel_id,
-            attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
-        return;
-      }
-      cue_predictor_.Release(target_id);
-      // 进入跟踪即清零连续命中计数：丢锁回宽场后需重新积累 required 次命中才能再调度。
-      wfov_consecutive_hits_.erase(target_id);
-      const bool use_estimated =
-          policy.tracking.tracking_mode == config::SbirsTrackingMode::kEstimated;
-      if (use_estimated) {
-        target_states_[target_id] = SbirsTargetState::kEstimatedTracking;
-      } else if (policy.tracking.tracking_mode ==
-                 config::SbirsTrackingMode::kStrictTruthAssisted) {
-        target_states_[target_id] = SbirsTargetState::kStrictTruthAssistedTracking;
-      } else {
-        target_states_[target_id] = SbirsTargetState::kSensorLikeTruthAssistedTracking;
-      }
-      if (use_estimated) {
-        tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking,
-                                               selected.measured_azimuth_deg,
-                                               selected.measured_elevation_deg);
-      }
-      SbirsPipelineDetection detection;
-      detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_rad = ToEciAzimuthRad(selected.measured_azimuth_deg);
-      detection.record.elevation_rad = ToEciElevationRad(selected.measured_elevation_deg);
-      detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
-      detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
-      detection.record.detected = true;
-      detection.attribution.detection_id = detection.record.detection_id;
-      detection.attribution.target_id = selected.target->target_id;
-      detection.attribution.target_name = selected.target->target_name;
-      detection.attribution.tracking_source = TrackingSourceForMode(policy.tracking.tracking_mode);
-      detection.attribution.max_detection_range_m =
-          static_cast<float>(selected.max_detection_range_m);
-      if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
-        detection.record.azimuth_rad = ToEciAzimuthRad(selected.azimuth_deg);
-        detection.record.elevation_rad = ToEciElevationRad(selected.elevation_deg);
-        detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
-      } else if (policy.tracking.tracking_mode ==
-                 config::SbirsTrackingMode::kSensorLikeTruthAssisted) {
-        const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
-            policy.error_model, &sensor_like_output_random_source_, selected.azimuth_deg,
-            selected.elevation_deg, selected.range_m, selected.relative_angular_rate_deg_per_sec);
-        detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
-        detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
-        detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
-      } else {
-        detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
-      }
-      detection.attribution.nfov_channel_id = channel_id;
-      result.detections.push_back(detection);
-    } else {
-      log_acceptance_release(target_id, "acquisition_ineligible", 0U);
-      nfov_scheduler_.Release(target_id);
-      pointing_coordinator_.ReleaseTarget(target_id);
-      target_states_[target_id] = SbirsTargetState::kWideCandidate;
-      blocked_target_ids.insert(target_id);
-      append_acquisition_failure(selected, channel_id,
-                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
-    }
-  };
-
-  std::vector<const SbirsCandidate*> awaiting_candidates;
+  std::map<std::uint64_t, const SbirsCandidate*> candidate_by_target;
   for (const SbirsCandidate& candidate : candidates) {
-    const std::uint64_t target_id = candidate.target->target_id;
-    if (target_states_[target_id] == SbirsTargetState::kAwaitingNfovAcquisition &&
-        nfov_scheduler_.IsLocked(target_id)) {
-      awaiting_candidates.push_back(&candidate);
-    }
-  }
-  std::sort(awaiting_candidates.begin(), awaiting_candidates.end(),
-            [this](const SbirsCandidate* lhs, const SbirsCandidate* rhs) {
-              const int lhs_channel = nfov_scheduler_.ChannelOf(lhs->target->target_id);
-              const int rhs_channel = nfov_scheduler_.ChannelOf(rhs->target->target_id);
-              return lhs_channel != rhs_channel ? lhs_channel < rhs_channel
-                                                : lhs->target->target_id < rhs->target->target_id;
-            });
-  for (const SbirsCandidate* candidate : awaiting_candidates) {
-    advance_pointing(*candidate, nfov_scheduler_.ChannelOf(candidate->target->target_id));
+    candidate_by_target[candidate.target->target_id] = &candidate;
   }
 
   // 宽窄切换前置条件（3.2.1.3.2.1）：连续命中达到阈值才允许进入 NFOV 调度。
@@ -1872,88 +1661,507 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const int required_consecutive_hits =
       std::max(1, policy.scheduler.wide_to_narrow_required_consecutive_hits);
   std::vector<SbirsCandidate> new_candidates;
-  // 被命中门挡下的候选：仍未具备切换资格（非资源不足），尾循环与 E6 不得把它们
-  // 误标为 kSchedulerSkipped"资源被占用或排序靠后"。
-  std::set<std::uint64_t> hit_gate_blocked_ids;
   for (const SbirsCandidate& candidate : candidates) {
     const std::uint64_t target_id = candidate.target->target_id;
-    if (processed_target_ids.count(target_id) != 0U || blocked_target_ids.count(target_id) != 0U ||
-        nfov_scheduler_.IsLocked(target_id)) {
+    if (nfov_scheduler_.IsLocked(target_id)) {
       continue;
     }
     const auto hits_entry = wfov_consecutive_hits_.find(target_id);
     const int consecutive_hits =
         hits_entry == wfov_consecutive_hits_.end() ? 0 : static_cast<int>(hits_entry->second);
     if (consecutive_hits < required_consecutive_hits) {
-      hit_gate_blocked_ids.insert(target_id);
-      // 规范口径（验收判定标准 第14项）：不写 连续命中/序列确认 字段；被命中门挡下
-      // 的目标本周期保持宽场候选，不进入 NFOV 调度（E3 计数行已按规范删除）。
       continue;
     }
     new_candidates.push_back(candidate);
   }
+  // 新候选全部入列（design 2.6 优先级排序只决定入列顺序；单镜筒无并发截断）。
   const std::vector<const SbirsCandidate*> selected_candidates =
       nfov_scheduler_.SelectForAcquisition(new_candidates);
   for (const SbirsCandidate* selected : selected_candidates) {
     const std::uint64_t target_id = selected->target->target_id;
-    const int channel_id = nfov_scheduler_.Acquire(target_id);
-    if (channel_id < 0 ||
-        !pointing_coordinator_.Reserve(
-            channel_id, target_id,
-            boresight_chain.EciLosOfSensorPointing(nominal_scan_azimuth_sensor_deg,
-                                                   nominal_scan_elevation_sensor_deg))) {
-      log_acceptance_release(target_id, "reserve_failed", 0U);
+    nfov_scheduler_.Acquire(target_id, selected->cue_source_satellite_entity_id);
+    target_states_[target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
+  }
+
+  // 轮转服务目标与共享镜筒推进（一次只服务一个方向；帧数按稳定时长计）。
+  const std::vector<std::uint64_t> engaged_ids = nfov_scheduler_.LockedTargetIds();
+  bool nfov_pointing_valid = false;
+  bool has_served_target = false;
+  std::uint64_t served_target_id = 0U;
+  SbirsPointingAdvanceResult pointing_result;
+  float actual_pointing_azimuth_deg = 0.0f;
+  float actual_pointing_elevation_deg = 0.0f;
+  int settled_frames = 0;
+  // 被服务 Estimated 目标的滤波预测缓存：PredictTarget 有状态（原地推进滤波），
+  // 命令合成与跟踪段必须共用同一次预测，否则该目标滤波每周期被推进两次。
+  bool served_prediction_valid = false;
+  SbirsTrackingPredictionResult served_prediction;
+  if (!engaged_ids.empty() &&
+      pointing_coordinator_.EnsureActuatorInitialized(boresight_chain.EciLosOfSensorPointing(
+          nominal_scan_azimuth_sensor_deg, nominal_scan_elevation_sensor_deg))) {
+    served_target_id = engaged_ids[nfov_rotation_step_ % engaged_ids.size()];
+    has_served_target = true;
+    ++nfov_rotation_step_;
+    const SbirsTargetState served_state = target_states_[served_target_id];
+    float command_azimuth_deg = 0.0f;
+    float command_elevation_deg = 0.0f;
+    bool command_valid = false;
+    if (served_state == SbirsTargetState::kAwaitingNfovAcquisition) {
+      const auto candidate_it = candidate_by_target.find(served_target_id);
+      if (candidate_it != candidate_by_target.end()) {
+        command_azimuth_deg = candidate_it->second->command_azimuth_deg;
+        command_elevation_deg = candidate_it->second->command_elevation_deg;
+        command_valid = true;
+      }
+    } else {
+      const auto context_it = locked_contexts.find(served_target_id);
+      if (context_it != locked_contexts.end()) {
+        command_azimuth_deg = context_it->second.azimuth_deg;
+        command_elevation_deg = context_it->second.elevation_deg;
+        if (served_state == SbirsTargetState::kEstimatedTracking) {
+          served_prediction = tracking_coordinator_.PredictTarget(
+              served_target_id, policy, input.dt_sec, satellite_position_eci_m);
+          served_prediction_valid = true;
+          command_azimuth_deg = served_prediction.output_azimuth_deg;
+          command_elevation_deg = served_prediction.output_elevation_deg;
+        }
+        command_valid = true;
+      }
+    }
+    if (command_valid) {
+      // NFOV 命令（ECI az/el）旋入传感器系并限位钳制，再经链合成 ECI 单位向量驱动
+      // 共享 actuator（限速转向在 ECI 单位向量域，参考系无关；限位够不到时停在边缘）。
+      float sensor_command_azimuth_deg = 0.0f;
+      float sensor_command_elevation_deg = 0.0f;
+      boresight_chain.SensorAzElOfEciVector(
+          LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg),
+          &sensor_command_azimuth_deg, &sensor_command_elevation_deg);
+      SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
+                                             &sensor_command_azimuth_deg,
+                                             &sensor_command_elevation_deg);
+      const session::SbirsVector3M command_los = boresight_chain.EciLosOfSensorPointing(
+          sensor_command_azimuth_deg, sensor_command_elevation_deg);
+      if (served_state == SbirsTargetState::kAwaitingNfovAcquisition) {
+        pointing_result = pointing_coordinator_.AdvanceAcquisition(
+            served_target_id, command_los, input.dt_sec, pointing_config);
+      } else {
+        pointing_result =
+            pointing_coordinator_.AdvanceTracking(command_los, input.dt_sec, pointing_config);
+      }
+      nfov_pointing_valid = EffectiveNfovPointing(
+          pointing_coordinator_, disturbance_parameters, pointing_result.current_los,
+          boresight_chain, mission.narrow_pointing_settle_error_deg,
+          &actual_pointing_azimuth_deg, &actual_pointing_elevation_deg);
+      settled_frames =
+          std::max(0, static_cast<int>(std::lround(
+                          static_cast<double>(mission.frame_rate_hz) *
+                          pointing_result.settled_duration_sec)));
+    }
+  }
+
+  // 首次捕获尝试（轮转窗口内：转向→稳定→捕获判定；捕获命令 = 实际指向，settle 误差
+  // 经请求字段入捕获门，与历史语义一致）。
+  const auto attempt_capture = [&](const SbirsCandidate& selected) {
+    const std::uint64_t target_id = selected.target->target_id;
+    float capture_command_azimuth_deg = 0.0f;
+    float capture_command_elevation_deg = 0.0f;
+    if (!EffectiveNfovPointing(pointing_coordinator_, disturbance_parameters,
+                               pointing_result.current_los, boresight_chain, 0.0f,
+                               &capture_command_azimuth_deg, &capture_command_elevation_deg)) {
+      log_acceptance_release(target_id, "pointing_unavailable", 0U);
       nfov_scheduler_.Release(target_id);
       pointing_coordinator_.ReleaseTarget(target_id);
       target_states_[target_id] = SbirsTargetState::kWideCandidate;
-      processed_target_ids.insert(target_id);
       blocked_target_ids.insert(target_id);
-      append_acquisition_failure(*selected, channel_id,
+      append_acquisition_failure(selected,
                                  attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      return;
+    }
+    SbirsNfovAcquisitionRequest acquisition_request;
+    // 首捕窗口判定在传感器系：delayed truth（延迟真值 ECI los）经链转换。
+    boresight_chain.SensorAzElOfEciVector(
+        LosFromAzimuthElevation(selected.delayed_truth_azimuth_deg,
+                                selected.delayed_truth_elevation_deg),
+        &acquisition_request.delayed_truth_azimuth_deg,
+        &acquisition_request.delayed_truth_elevation_deg);
+    acquisition_request.command_azimuth_deg = capture_command_azimuth_deg;
+    acquisition_request.command_elevation_deg = capture_command_elevation_deg;
+    acquisition_request.pointing_settle_error_deg = mission.narrow_pointing_settle_error_deg;
+    acquisition_request.field_of_view_azimuth_deg = mission.narrow_field_fov_az_deg;
+    acquisition_request.field_of_view_elevation_deg = mission.narrow_field_fov_el_deg;
+    acquisition_request.snr = selected.snr;
+    acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
+    const bool captured = IsNfovAcquisitionEligible(acquisition_request);
+    if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+      // 中译：窄视场首次捕获事件（卫星、目标、捕获结论、cue 预测命令角与 SNR）。
+      // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 捕获结论证据；窄场角按规范口径写 ECI 弧度。
+      constexpr double kDegToRad = 0.017453292519943295;
+      const double selected_snr_db = 10.0 * std::log10(std::max(selected.snr, 1.0e-12));
+      SBIRS_ACCEPTANCE_ITEM(
+          sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+          "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
+              std::to_string(target_id) + " 捕获=" + std::string(captured ? "成功" : "失败") +
+              " 窄场方位/俯仰(ECI)=(" +
+              oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
+              oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) +
+              ")rad SNR(dB)=" + oneq::logging::FormatF(selected_snr_db, 3) + "dB");
+    }
+    if (!captured) {
+      log_acceptance_release(target_id, "acquisition_ineligible", 0U);
+      nfov_scheduler_.Release(target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(selected,
+                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      return;
+    }
+    pointing_coordinator_.PromoteToTracking(target_id);
+    cue_predictor_.Release(target_id);
+    // 进入跟踪即清零连续命中计数：丢锁回宽场后需重新积累 required 次命中才能再调度。
+    wfov_consecutive_hits_.erase(target_id);
+    const bool use_estimated =
+        policy.tracking.tracking_mode == config::SbirsTrackingMode::kEstimated;
+    if (use_estimated) {
+      target_states_[target_id] = SbirsTargetState::kEstimatedTracking;
+    } else if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
+      target_states_[target_id] = SbirsTargetState::kStrictTruthAssistedTracking;
+    } else {
+      target_states_[target_id] = SbirsTargetState::kSensorLikeTruthAssistedTracking;
+    }
+    if (use_estimated) {
+      tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking,
+                                             selected.measured_azimuth_deg,
+                                             selected.measured_elevation_deg);
+    }
+    SbirsPipelineDetection detection;
+    detection.record.detection_id = next_detection_id_++;
+    detection.record.azimuth_rad = ToEciAzimuthRad(selected.measured_azimuth_deg);
+    detection.record.elevation_rad = ToEciElevationRad(selected.measured_elevation_deg);
+    detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
+    detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
+    detection.record.detected = true;
+    detection.attribution.detection_id = detection.record.detection_id;
+    detection.attribution.target_id = selected.target->target_id;
+    detection.attribution.target_name = selected.target->target_name;
+    detection.attribution.tracking_source = TrackingSourceForMode(policy.tracking.tracking_mode);
+    detection.attribution.max_detection_range_m =
+        static_cast<float>(selected.max_detection_range_m);
+    if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
+      detection.record.azimuth_rad = ToEciAzimuthRad(selected.azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(selected.elevation_deg);
+      detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
+    } else if (policy.tracking.tracking_mode ==
+               config::SbirsTrackingMode::kSensorLikeTruthAssisted) {
+      const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
+          policy.error_model, &sensor_like_output_random_source_, selected.azimuth_deg,
+          selected.elevation_deg, selected.range_m, selected.relative_angular_rate_deg_per_sec);
+      detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
+      detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
+    } else {
+      detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
+    }
+    detection.attribution.nfov_channel_id = 0;
+    result.detections.push_back(detection);
+  };
+
+  // 跟踪段逐目标量测：同帧免费多跟——当前视场内全部锁定目标共享 settled_frames。
+  for (const std::uint64_t engaged_id : engaged_ids) {
+    const SbirsTargetState state = target_states_[engaged_id];
+    if (state != SbirsTargetState::kStrictTruthAssistedTracking &&
+        state != SbirsTargetState::kSensorLikeTruthAssistedTracking &&
+        state != SbirsTargetState::kEstimatedTracking) {
       continue;
     }
-    target_states_[target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
-    advance_pointing(*selected, channel_id);
+    const auto context_it = locked_contexts.find(engaged_id);
+    if (context_it == locked_contexts.end()) {
+      continue;
+    }
+    const LockedTargetContext& context = context_it->second;
+    const SbirsEciSceneTarget& target = *context.target;
+    const bool estimated_tracking = state == SbirsTargetState::kEstimatedTracking;
+    float command_azimuth_deg = context.azimuth_deg;
+    float command_elevation_deg = context.elevation_deg;
+    if (estimated_tracking) {
+      if (engaged_id == served_target_id && served_prediction_valid) {
+        // 轮转段已为被服务目标做过本周期唯一一次滤波预测（PredictTarget 有状态），
+        // 此处复用，保证与单通道时代同款"每周期一次 predict→correct"节奏。
+        command_azimuth_deg = served_prediction.output_azimuth_deg;
+        command_elevation_deg = served_prediction.output_elevation_deg;
+      } else {
+        const SbirsTrackingPredictionResult prediction = tracking_coordinator_.PredictTarget(
+            engaged_id, policy, input.dt_sec, satellite_position_eci_m);
+        command_azimuth_deg = prediction.output_azimuth_deg;
+        command_elevation_deg = prediction.output_elevation_deg;
+      }
+    }
+    const bool geometry_gate_passed =
+        nfov_pointing_valid &&
+        InRectangularFov(context.sensor_azimuth_deg, context.sensor_elevation_deg,
+                         actual_pointing_azimuth_deg, actual_pointing_elevation_deg,
+                         mission.narrow_field_fov_az_deg, mission.narrow_field_fov_el_deg);
+    const bool snr_gate_passed = context.snr >= policy.detection.narrow_min_snr_linear;
+    // 高刷新率帧数（单镜筒轮转口径）：仅稳定窗口内的时长可积分；轮空/转动周期帧数为
+    // 0，该周期无融合量测（滑行）。
+    const int nfov_frame_count = geometry_gate_passed && snr_gate_passed ? settled_frames : 0;
+    const bool tracking_gate_passed = nfov_frame_count >= 1;
+    const unsigned int gate_failure_count =
+        pointing_coordinator_.RecordTrackingGateResult(engaged_id, tracking_gate_passed);
+    const bool lost_due_to_tracking_gate =
+        !tracking_gate_passed &&
+        gate_failure_count >= policy.tracking.nfov_tracking_gate_loss_cycles;
+    processed_target_ids.insert(engaged_id);
+
+    SbirsPipelineDetection detection;
+    detection.record.detection_id = next_detection_id_++;
+    detection.record.azimuth_rad = ToEciAzimuthRad(command_azimuth_deg);
+    detection.record.elevation_rad = ToEciElevationRad(command_elevation_deg);
+    detection.record.infrared_snr_linear = static_cast<float>(context.snr);
+    detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
+    detection.record.detected = tracking_gate_passed;
+    detection.attribution.detection_id = detection.record.detection_id;
+    detection.attribution.target_id = engaged_id;
+    detection.attribution.target_name = target.target_name;
+    detection.attribution.estimated_range_m = static_cast<float>(context.range_m);
+    detection.attribution.max_detection_range_m =
+        static_cast<float>(context.max_detection_range_m);
+    detection.attribution.tracking_source = TrackingSourceForState(state);
+    detection.attribution.cue_source_satellite_entity_id = nfov_scheduler_.CueSourceOf(engaged_id);
+    detection.attribution.nfov_channel_id = 0;
+    detection.attribution.has_nfov_tracking_diagnostics = true;
+    detection.attribution.nfov_pointing_error_deg = foundation::AngularSeparationDeg(
+        context.azimuth_deg, context.elevation_deg, actual_pointing_azimuth_deg,
+        actual_pointing_elevation_deg);
+    detection.attribution.nfov_geometry_gate_passed = geometry_gate_passed;
+    detection.attribution.nfov_snr_gate_passed = snr_gate_passed;
+    detection.attribution.nfov_tracking_gate_failure_count = gate_failure_count;
+    detection.attribution.nfov_tracking_coasting =
+        !tracking_gate_passed && !lost_due_to_tracking_gate;
+
+    bool lost_due_to_estimation_nis = false;
+    SbirsTrackingUpdateResult tracking_result;
+    // 单帧 σ 为硬件性质（与帧数无关）；融合 σ 仅在有帧时按 1/√N 衰减，滑行周期记 0。
+    const double nfov_frame_sigma_deg =
+        foundation::ResolveEffectiveAngularSigmaDeg(policy.error_model);
+    const double nfov_fused_sigma_deg =
+        nfov_frame_count >= 1
+            ? nfov_frame_sigma_deg / std::sqrt(static_cast<double>(nfov_frame_count))
+            : 0.0;
+    detection.attribution.nfov_frame_count = nfov_frame_count;
+    detection.attribution.nfov_frame_sigma_deg = static_cast<float>(nfov_frame_sigma_deg);
+    detection.attribution.nfov_fused_sigma_deg = static_cast<float>(nfov_fused_sigma_deg);
+    if (tracking_gate_passed && estimated_tracking) {
+      tracking_result = tracking_coordinator_.CorrectTarget(
+          engaged_id, policy, &estimated_measurement_random_source_, context.azimuth_deg,
+          context.elevation_deg, context.range_m, context.omega_deg_per_sec,
+          satellite_position_eci_m, nfov_frame_count);
+      detection.record.azimuth_rad = ToEciAzimuthRad(tracking_result.output_azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(tracking_result.output_elevation_deg);
+      detection.attribution.has_estimation_nis = tracking_result.has_estimation_nis;
+      detection.attribution.estimation_nis = tracking_result.estimation_nis;
+      detection.attribution.estimation_nis_gate_exceeded =
+          tracking_result.estimation_nis_gate_exceeded;
+      lost_due_to_estimation_nis = tracking_result.lost_due_to_estimation_nis;
+      detection.record.detected = !lost_due_to_estimation_nis;
+    } else if (tracking_gate_passed &&
+               state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
+      const foundation::SbirsFusedBearingResult fused_bearing =
+          foundation::ApplyAngularErrorModelFused(
+              policy.error_model, &sensor_like_output_random_source_, context.azimuth_deg,
+              context.elevation_deg, context.range_m, context.omega_deg_per_sec,
+              nfov_frame_count);
+      detection.record.azimuth_rad = ToEciAzimuthRad(fused_bearing.bearing.azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(fused_bearing.bearing.elevation_deg);
+      detection.attribution.estimated_range_m =
+          static_cast<float>(fused_bearing.bearing.range_m);
+    } else if (!tracking_gate_passed && estimated_tracking) {
+      tracking_coordinator_.MarkMeasurementUnavailable(engaged_id);
+    }
+    if (lost_due_to_estimation_nis) {
+      detection.attribution.capture_failure_reason =
+          attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
+      log_acceptance_release(engaged_id, "nis_gate_lost", gate_failure_count);
+      target_states_[engaged_id] = SbirsTargetState::kWideCandidate;
+      nfov_scheduler_.Release(engaged_id);
+      pointing_coordinator_.ReleaseTarget(engaged_id);
+      tracking_coordinator_.ReleaseTarget(engaged_id);
+    } else if (lost_due_to_tracking_gate) {
+      detection.attribution.capture_failure_reason =
+          attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost;
+      log_acceptance_release(engaged_id, "tracking_gate_lost", gate_failure_count);
+      target_states_[engaged_id] = SbirsTargetState::kWideCandidate;
+      nfov_scheduler_.Release(engaged_id);
+      pointing_coordinator_.ReleaseTarget(engaged_id);
+      tracking_coordinator_.ReleaseTarget(engaged_id);
+    }
+    // 焦平面脱靶量：目标传感器系角与实际指向角的逐轴差经 f·tan 映射（米+像素）；
+    // 焦距/像元间距非正时（配置校验已拦截）跳过。随归属记录透出（验收判定标准
+    // 第26项 脱靶量数据源，精度评估层消费），验收行在此复用同一份计算。
+    foundation::SbirsFocalPlaneOffset focal_offset;
+    const bool focal_valid = foundation::ComputeFocalPlaneOffset(
+        hw.focal_length_m, hw.detector_pixel_pitch_m,
+        AzimuthDelta(context.sensor_azimuth_deg, actual_pointing_azimuth_deg),
+        context.sensor_elevation_deg - actual_pointing_elevation_deg, &focal_offset);
+    if (focal_valid) {
+      detection.attribution.has_focal_plane_offset = true;
+      detection.attribution.focal_plane_offset_x_m = focal_offset.x_m;
+      detection.attribution.focal_plane_offset_y_m = focal_offset.y_m;
+    }
+    if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+      // 中译：窄视场跟踪事件（目标编号、跟踪模式、实际指向与目标角、指向误差、焦平面
+      //       脱靶量、输出角定位角度误差、SNR 与信号能量、几何/SNR 门结果、失败计数、
+      //       滑行标志、NIS、本周期帧数与单帧/融合 σ）。
+      // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"、
+      //       3.2.1.6.3 红外定位角度误差（跟踪段）证据；输出角误差在滤波/误差注入
+      //       全部完成后取最终输出角 − 真值角（方位最短角差）。滑行周期 帧数=0。
+      const double az_err = AzimuthDelta(
+          static_cast<float>(detection.record.azimuth_rad * 57.29577951308232), context.azimuth_deg);
+      const double el_err =
+          static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - context.elevation_deg;
+      std::string nfov = "卫星ID=" + std::to_string(satellite_entity_id_);
+      nfov += " 目标ID=" + std::to_string(engaged_id);
+      if (focal_valid) {
+        nfov += " 脱靶量m=(" + oneq::logging::FormatF(focal_offset.x_m, 6) + "," +
+                oneq::logging::FormatF(focal_offset.y_m, 6) + ")";
+        nfov += " 脱靶量像素=(" + oneq::logging::FormatF(focal_offset.x_pixels, 2) + "," +
+                oneq::logging::FormatF(focal_offset.y_pixels, 2) + ")";
+      }
+      const double snr_db = 10.0 * std::log10(std::max(context.snr, 1.0e-12));
+      nfov += " 信号能量=" + oneq::logging::FormatSci(context.signal_energy_j) + "J";
+      nfov += " SNR(dB)=" + oneq::logging::FormatF(snr_db, 3) + "dB";
+      // 高刷新率高精度数据输出（单镜筒轮转口径）：本周期实际帧数 + 单帧/融合 1-σ。
+      nfov += " 帧数=" + std::to_string(nfov_frame_count);
+      nfov += " 单帧σ=" + oneq::logging::FormatSci(nfov_frame_sigma_deg) + "deg";
+      nfov += " 融合σ=" + oneq::logging::FormatSci(nfov_fused_sigma_deg) + "deg";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测功能测试", nfov);
+      // 规范口径（验收判定标准 第14项·其三）：窄视场精确状态序列——同一目标逐周期
+      // 的窄场角（ECI rad）、跟踪状态与 SNR。
+      std::string joint_track = "卫星ID=" + std::to_string(satellite_entity_id_);
+      joint_track += " 目标ID=" + std::to_string(engaged_id);
+      joint_track += " 窄场方位/俯仰(ECI)=(" +
+                     oneq::logging::FormatF(detection.record.azimuth_rad, 8) + "," +
+                     oneq::logging::FormatF(detection.record.elevation_rad, 8) + ")rad";
+      joint_track += " 跟踪状态=";
+      joint_track += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
+      joint_track += " SNR(dB)=" + oneq::logging::FormatF(snr_db, 3) + "dB";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                            joint_track);
+      WriteSbirsAngleError(satellite_entity_id_, sim_time_sec, input.cycle_index,
+                           engaged_id, az_err, el_err,
+                           detection.record.azimuth_rad * 57.29577951308232,
+                           detection.record.elevation_rad * 57.29577951308232);
+      if (tracking_result.has_angle_rate) {
+        // 中译：角度域 KF 后验（滤波方位/俯仰及其变化率）；不进公开检测记录。
+        // 标识：实验后端 kAngleCvKf 的用例 16 状态估计验收行。
+        WriteSbirsAngleStateEstimate(
+            sim_time_sec, input.cycle_index, engaged_id,
+            tracking_result.output_azimuth_deg, tracking_result.output_elevation_deg,
+            tracking_result.azimuth_rate_rad_per_s * 57.29577951308232,
+            tracking_result.elevation_rate_rad_per_s * 57.29577951308232);
+      }
+    }
+    result.detections.push_back(detection);
   }
 
-  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    // 中译：窄视场调度事件（本周期进入调度的新候选目标列表与通道分配、当前锁定数与
-    //       上限、通道是否已满、被资源跳过的候选目标列表）。
-    // 标识：验收日志 E6——3.2.1.3.2.4 传感器侧协同（SNR 降序/距离升序候选选择、
-    //       有限通道分配与资源跳过标记）证据；威胁评分联合决策归决策层，不在此输出。
-    std::string selected_text;
-    for (const SbirsCandidate* selected : selected_candidates) {
-      if (!selected_text.empty()) {
-        selected_text += " ";
+  // 被服务目标的首次捕获（轮转窗口语义：转向中宽场行 / 超时或被拒回退 / 稳定后捕获）。
+  if (has_served_target &&
+      target_states_[served_target_id] == SbirsTargetState::kAwaitingNfovAcquisition) {
+    const auto candidate_it = candidate_by_target.find(served_target_id);
+    if (candidate_it != candidate_by_target.end()) {
+      const SbirsCandidate& selected = *candidate_it->second;
+      processed_target_ids.insert(served_target_id);
+      if (pointing_result.status == SbirsPointingAdvanceStatus::kSlewing) {
+        if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+          // 中译：窄视场首次捕获事件——转向中（卫星、目标、窄场指向命令角、SNR）。
+          // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 指向/捕获过程的"转向"中间态证据；
+          //       窄场角按规范口径写 ECI 弧度（cue 预测命令角）。
+          constexpr double kDegToRad = 0.017453292519943295;
+          const double selected_snr_db = 10.0 * std::log10(std::max(selected.snr, 1.0e-12));
+          SBIRS_ACCEPTANCE_ITEM(
+              sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+              "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
+                  std::to_string(served_target_id) + " 捕获=转向中 窄场方位/俯仰(ECI)=(" +
+                  oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
+                  oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) +
+                  ")rad SNR(dB)=" + oneq::logging::FormatF(selected_snr_db, 3) + "dB");
+        }
+        append_wfov_detection(selected);
+      } else if (pointing_result.status == SbirsPointingAdvanceStatus::kTimedOut) {
+        log_acceptance_release(served_target_id, "pointing_timeout", 0U);
+        nfov_scheduler_.Release(served_target_id);
+        pointing_coordinator_.ReleaseTarget(served_target_id);
+        target_states_[served_target_id] = SbirsTargetState::kWideCandidate;
+        blocked_target_ids.insert(served_target_id);
+        if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+          // 中译：窄视场首次捕获事件——指向超时失败（卫星、目标）。
+          // 标识：验收日志 E4——3.2.1.3.2.1 指向超时回退证据（与 E7 release 成对）。
+          SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                                "卫星ID=" + std::to_string(satellite_entity_id_) +
+                                    " 目标ID=" + std::to_string(served_target_id) +
+                                    " 捕获=超时失败");
+        }
+        append_acquisition_failure(
+            selected, attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
+      } else if (pointing_result.status == SbirsPointingAdvanceStatus::kRejected ||
+                 !nfov_pointing_valid) {
+        log_acceptance_release(served_target_id, "pointing_rejected", 0U);
+        nfov_scheduler_.Release(served_target_id);
+        pointing_coordinator_.ReleaseTarget(served_target_id);
+        target_states_[served_target_id] = SbirsTargetState::kWideCandidate;
+        blocked_target_ids.insert(served_target_id);
+        if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+          // 中译：窄视场首次捕获事件——指向被拒失败（卫星、目标）。
+          // 标识：验收日志 E4——3.2.1.3.2.1 指向拒绝回退证据（与 E7 release 成对）。
+          SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                                "卫星ID=" + std::to_string(satellite_entity_id_) +
+                                    " 目标ID=" + std::to_string(served_target_id) +
+                                    " 捕获=指向被拒");
+        }
+        append_acquisition_failure(selected,
+                                   attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      } else {
+        attempt_capture(selected);
       }
-      const std::uint64_t target_id = selected->target->target_id;
-      selected_text += std::to_string(target_id) + ":ch" +
-                       std::to_string(nfov_scheduler_.ChannelOf(target_id));
     }
-    std::string skipped_text;
-    for (const SbirsCandidate& candidate : candidates) {
-      const std::uint64_t target_id = candidate.target->target_id;
-      if (processed_target_ids.count(target_id) != 0U || nfov_scheduler_.IsLocked(target_id) ||
-          hit_gate_blocked_ids.count(target_id) != 0U) {
+  }
+
+  // 同帧免转动捕获：非服务但已在当前窄视场内的 Awaiting 候选立即尝试捕获（镜筒不动，
+  // 捕获命令 = 当前实际指向）。
+  if (nfov_pointing_valid) {
+    for (const std::uint64_t engaged_id : engaged_ids) {
+      if (engaged_id == served_target_id ||
+          processed_target_ids.count(engaged_id) != 0U ||
+          blocked_target_ids.count(engaged_id) != 0U ||
+          target_states_[engaged_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
         continue;
       }
-      if (static_cast<int>(nfov_scheduler_.LockedCount()) >= nfov_scheduler_.max_locks()) {
-        if (!skipped_text.empty()) {
-          skipped_text += " ";
-        }
-        skipped_text += std::to_string(target_id);
+      const auto candidate_it = candidate_by_target.find(engaged_id);
+      if (candidate_it == candidate_by_target.end()) {
+        continue;
       }
+      const SbirsCandidate& selected = *candidate_it->second;
+      float candidate_sensor_azimuth_deg = 0.0f;
+      float candidate_sensor_elevation_deg = 0.0f;
+      boresight_chain.SensorAzElOfEciVector(
+          LosFromAzimuthElevation(selected.azimuth_deg, selected.elevation_deg),
+          &candidate_sensor_azimuth_deg, &candidate_sensor_elevation_deg);
+      if (!InRectangularFov(candidate_sensor_azimuth_deg, candidate_sensor_elevation_deg,
+                            actual_pointing_azimuth_deg, actual_pointing_elevation_deg,
+                            mission.narrow_field_fov_az_deg, mission.narrow_field_fov_el_deg)) {
+        continue;
+      }
+      processed_target_ids.insert(engaged_id);
+      attempt_capture(selected);
     }
-    // 调度选中/锁定/跳过为内部诊断（规范「宽窄视场联合探测功能测试」已覆盖），
-    // 不再单独输出「协同工作机制」行。
   }
 
-  // 通道已满（无并发余量）时，未被选中的 WFOV 候选标记为调度跳过。
-  const bool resources_full =
-      static_cast<int>(nfov_scheduler_.LockedCount()) >= nfov_scheduler_.max_locks();
+  // 未处理目标（等待轮转窗口的 Awaiting 与命中门未达标的候选）保持宽场候选行；
+  // 单镜筒无"资源满跳过"标记（容量由轮转物理涌现，不再有 kSchedulerSkipped）。
   for (const SbirsCandidate& candidate : candidates) {
     const std::uint64_t target_id = candidate.target->target_id;
-    if (processed_target_ids.count(target_id) != 0U || nfov_scheduler_.IsLocked(target_id)) {
+    if (processed_target_ids.count(target_id) != 0U ||
+        blocked_target_ids.count(target_id) != 0U) {
       continue;
     }
     SbirsPipelineDetection detection;
@@ -1967,15 +2175,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    // 进入 WFOV 候选但未被调度器选中（资源被占用或排序靠后）：标记为调度跳过；
-    // 被命中门挡下的候选是"尚未具备切换资格"，不属于资源跳过（见 hit_gate_blocked_ids）。
-    if (resources_full && hit_gate_blocked_ids.count(target_id) == 0U) {
-      detection.attribution.capture_failure_reason =
-          attribution::SbirsCaptureFailureReason::kSchedulerSkipped;
-    }
+    detection.attribution.nfov_channel_id = nfov_scheduler_.IsLocked(target_id) ? 0 : -1;
     result.detections.push_back(detection);
   }
 
+  register_detectability();
   log_cycle_summary();
   return result;
 }
@@ -1993,6 +2197,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.target_states = target_states_;
   snapshot.wfov_consecutive_hits = wfov_consecutive_hits_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
+  snapshot.nfov_rotation_step = nfov_rotation_step_;
   snapshot.pointing_coordinator = pointing_coordinator_.Capture();
   snapshot.wfov_measurement_random_state = wfov_measurement_random_source_.Capture();
   snapshot.estimated_measurement_random_state = estimated_measurement_random_source_.Capture();
@@ -2016,28 +2221,20 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
     return false;
   }
   SbirsPointingCoordinator restored_pointing(
-      nfov_scheduler_.max_locks(), config_.session.policy.pointing_disturbance.random_seed);
-  if (!restored_pointing.Restore(snapshot.pointing_coordinator) ||
-      snapshot.nfov_scheduler.target_to_channel.size() >
-          static_cast<std::size_t>(nfov_scheduler_.max_locks())) {
+      config_.session.policy.pointing_disturbance.random_seed);
+  if (!restored_pointing.Restore(snapshot.pointing_coordinator)) {
     return false;
   }
-  std::set<int> assigned_channels;
+  // 锁定集合与目标状态机一致性：集合成员须处于 Awaiting/Tracking 态，反之亦然。
   for (const std::map<std::uint64_t, int>::value_type& assignment :
-       snapshot.nfov_scheduler.target_to_channel) {
+       snapshot.nfov_scheduler.target_to_cue_source) {
     const std::map<std::uint64_t, SbirsTargetState>::const_iterator state =
         snapshot.target_states.find(assignment.first);
-    if (assignment.second < 0 || assignment.second >= nfov_scheduler_.max_locks() ||
-        !assigned_channels.insert(assignment.second).second ||
-        state == snapshot.target_states.end() ||
+    if (state == snapshot.target_states.end() ||
         (state->second != SbirsTargetState::kAwaitingNfovAcquisition &&
          state->second != SbirsTargetState::kEstimatedTracking &&
          state->second != SbirsTargetState::kStrictTruthAssistedTracking &&
          state->second != SbirsTargetState::kSensorLikeTruthAssistedTracking)) {
-      return false;
-    }
-    const int pointing_channel = restored_pointing.ChannelOf(assignment.first);
-    if (pointing_channel != assignment.second) {
       return false;
     }
   }
@@ -2047,38 +2244,29 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
          state.second == SbirsTargetState::kEstimatedTracking ||
          state.second == SbirsTargetState::kStrictTruthAssistedTracking ||
          state.second == SbirsTargetState::kSensorLikeTruthAssistedTracking) &&
-        snapshot.nfov_scheduler.target_to_channel.find(state.first) ==
-            snapshot.nfov_scheduler.target_to_channel.end()) {
+        snapshot.nfov_scheduler.target_to_cue_source.find(state.first) ==
+            snapshot.nfov_scheduler.target_to_cue_source.end()) {
       return false;
     }
   }
-  const SbirsPointingCoordinatorSnapshot restored_snapshot = restored_pointing.Capture();
-  for (const SbirsPointingChannelSnapshot& channel : restored_snapshot.channels) {
-    if (!channel.has_bound_target) {
-      continue;
-    }
-    const std::map<std::uint64_t, int>::const_iterator assignment =
-        snapshot.nfov_scheduler.target_to_channel.find(channel.target_id);
-    if (assignment == snapshot.nfov_scheduler.target_to_channel.end() ||
-        assignment->second != channel.channel_id ||
-        snapshot.target_states.find(channel.target_id) == snapshot.target_states.end() ||
-        (snapshot.target_states.find(channel.target_id)->second !=
-             SbirsTargetState::kAwaitingNfovAcquisition &&
-         snapshot.target_states.find(channel.target_id)->second !=
-             SbirsTargetState::kEstimatedTracking &&
-         snapshot.target_states.find(channel.target_id)->second !=
-             SbirsTargetState::kStrictTruthAssistedTracking &&
-         snapshot.target_states.find(channel.target_id)->second !=
-             SbirsTargetState::kSensorLikeTruthAssistedTracking)) {
+  // 单镜筒簿记一致性：捕获等待只属于 Awaiting 目标；跟踪门失败计数只属于 Tracking
+  // 目标且未达丢锁门限（达到即应已在该周期释放）。
+  for (const auto& wait_entry : snapshot.pointing_coordinator.acquisition_wait_sec) {
+    const std::map<std::uint64_t, SbirsTargetState>::const_iterator state =
+        snapshot.target_states.find(wait_entry.first);
+    if (state == snapshot.target_states.end() ||
+        state->second != SbirsTargetState::kAwaitingNfovAcquisition) {
       return false;
     }
-    const SbirsTargetState channel_state = snapshot.target_states.find(channel.target_id)->second;
-    if ((channel_state == SbirsTargetState::kAwaitingNfovAcquisition &&
-         channel.tracking_gate_failure_count != 0U) ||
-        (channel_state != SbirsTargetState::kAwaitingNfovAcquisition &&
-         (channel.elapsed_wait_sec != 0.0 ||
-          channel.tracking_gate_failure_count >=
-              config_.session.policy.tracking.nfov_tracking_gate_loss_cycles))) {
+  }
+  for (const auto& count_entry : snapshot.pointing_coordinator.tracking_gate_failure_counts) {
+    const std::map<std::uint64_t, SbirsTargetState>::const_iterator state =
+        snapshot.target_states.find(count_entry.first);
+    if (state == snapshot.target_states.end() ||
+        (state->second != SbirsTargetState::kEstimatedTracking &&
+         state->second != SbirsTargetState::kStrictTruthAssistedTracking &&
+         state->second != SbirsTargetState::kSensorLikeTruthAssistedTracking) ||
+        count_entry.second >= config_.session.policy.tracking.nfov_tracking_gate_loss_cycles) {
       return false;
     }
   }
@@ -2098,6 +2286,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   next_detection_id_ = snapshot.next_detection_id;
   target_states_ = snapshot.target_states;
   wfov_consecutive_hits_ = snapshot.wfov_consecutive_hits;
+  nfov_rotation_step_ = snapshot.nfov_rotation_step;
   nfov_scheduler_.Restore(snapshot.nfov_scheduler);
   pointing_coordinator_ = restored_pointing;
   wfov_measurement_random_source_.Restore(snapshot.wfov_measurement_random_state);

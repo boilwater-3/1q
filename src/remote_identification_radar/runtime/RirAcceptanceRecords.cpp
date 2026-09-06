@@ -22,7 +22,6 @@
 #include "common/radar/MtiMtdAcceptanceBank.h"
 #include "common/radar/RadarEquations.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
-#include "remote_identification_radar/runtime/PolarizationAcceptanceS.h"
 #include "remote_identification_radar/runtime/RirController.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
@@ -45,6 +44,23 @@ using oneq::logging::FormatPairDeg;
 using oneq::logging::FormatSci;
 using oneq::logging::FormatVec3;
 using oneq::logging::YesNo;
+
+/** @brief 弹道细分类型中文名（仅验收日志消费；判据未冻结前不会被调用）。 */
+std::string BallisticSubclassName(int subclass) {
+  using session::RirBallisticSubclass;
+  switch (subclass) {
+    case static_cast<int>(RirBallisticSubclass::kReentryVehicle):
+      return "弹头";
+    case static_cast<int>(RirBallisticSubclass::kHeavyDecoy):
+      return "重诱饵";
+    case static_cast<int>(RirBallisticSubclass::kLightDecoy):
+      return "轻诱饵";
+    case static_cast<int>(RirBallisticSubclass::kDebris):
+      return "碎片";
+    default:
+      return std::string();
+  }
+}
 
 const char* CategoryName(int category) {
   using session::RirRecognitionCategory;
@@ -467,7 +483,6 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
                         const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
-                        const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
                         bool has_truth, double category_accuracy,
                         const std::vector<float>* imm_weights,
                         const oneq::coordinate::EcefPositionM& platform_ecef,
@@ -626,28 +641,44 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
       Emit(sim_time_sec, cycle, "RCS统计特征处理功能测试", rcs_text);
     }
 
-    // 第46项 极化特征解算：六个子项各一行（key=判定指标名）；缺样本的量省略，
-    // 极化差/相对/和与置信度/正确识别率为汇总派生，不写。
-    PolarizationAcceptanceSResult derived;
-    const bool has_s =
-        polarization_samples != nullptr &&
-        TryResolvePolarizationAcceptanceS(*polarization_samples, features->look_az_deg,
-                                          features->look_el_deg, &derived);
+    // 第46项 极化特征解算：五个统计量各一行"均值/标准差"（统计总体=姿态扇区窗口行，
+    // 方向角为圆统计口径）；细分类型（弹头/重诱饵/轻诱饵/碎片）判据未冻结恒未判，
+    // 判决就绪前不追加。窗口无效时数值行整体省略。
+    const session::RirPolarizationStatsFeatureObservation& pol_stats =
+        features != nullptr ? features->features.polarization_stats
+                            : session::RirPolarizationStatsFeatureObservation{};
+    const bool has_pol_stats = pol_stats.valid;
     EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试",
-               track_target_id + " 极化散射矩阵行列式=", has_s,
-               has_s ? FormatSci(derived.abs_det) : std::string());
-    EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试", track_target_id + " 功率迹（Span）=",
-               has_s, has_s ? FormatSci(derived.span) : std::string());
-    EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试", track_target_id + " 去极化系数=", has_s,
-               has_s ? FormatF(derived.depolarization, 4) : std::string());
+               track_target_id + " 极化散射矩阵行列式均值/标准差=", has_pol_stats,
+               has_pol_stats ? FormatSci(pol_stats.determinant_mean) + "/" +
+                                   FormatSci(pol_stats.determinant_std)
+                             : std::string());
     EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试",
-               track_target_id + " 本征极化方向角=", has_s,
-               has_s ? FormatF(derived.psi_deg, 3) + "°" : std::string());
+               track_target_id + " 功率迹（Span）均值/标准差=", has_pol_stats,
+               has_pol_stats ? FormatSci(pol_stats.span_mean) + "/" + FormatSci(pol_stats.span_std)
+                             : std::string());
     EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试",
-               track_target_id + " 本征极化椭圆率=", has_s,
-               has_s ? FormatF(derived.tau_deg, 3) + "°" : std::string());
+               track_target_id + " 去极化系数均值/标准差=", has_pol_stats,
+               has_pol_stats ? FormatF(pol_stats.depolarization_mean, 4) + "/" +
+                                   FormatF(pol_stats.depolarization_std, 4)
+                             : std::string());
+    EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试",
+               track_target_id + " 本征极化方向角均值/标准差=", has_pol_stats,
+               has_pol_stats ? FormatF(pol_stats.psi_mean_deg, 3) + "°/" +
+                                   FormatF(pol_stats.psi_std_deg, 3) + "°"
+                             : std::string());
+    EmitOrNone(sim_time_sec, cycle, "极化特征解算功能测试",
+               track_target_id + " 本征极化椭圆率均值/标准差=", has_pol_stats,
+               has_pol_stats ? FormatF(pol_stats.tau_mean_deg, 3) + "°/" +
+                                   FormatF(pol_stats.tau_std_deg, 3) + "°"
+                             : std::string());
+    std::string subclass_text;
+    if (result != nullptr && result->ballistic_subclass != session::RirBallisticSubclass::kUnknown) {
+      subclass_text = " 细分类型=" + BallisticSubclassName(
+                              static_cast<int>(result->ballistic_subclass));
+    }
     Emit(sim_time_sec, cycle, "极化特征解算功能测试",
-         track_target_id + " 目标类型=" + category_text);
+         track_target_id + " 目标类型=" + category_text + subclass_text);
 
     // 第47项 宽带一维像特征解算：散射中心（场景距离像真值输入——库内特征提取只
     // 出长度/峰数等统计量，无逐中心量测输出）+ 轮廓（长度/峰数）+ 识别类别；

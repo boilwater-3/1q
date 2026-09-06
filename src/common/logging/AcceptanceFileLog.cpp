@@ -22,8 +22,8 @@
 #include <windows.h>
 #endif
 
-#ifndef ONEQ_SBIRS_ACCEPTANCE_LOG_PATH
-#define ONEQ_SBIRS_ACCEPTANCE_LOG_PATH "log/sbirs_acceptance.log"
+#ifndef ONEQ_OPIR_ACCEPTANCE_LOG_PATH
+#define ONEQ_OPIR_ACCEPTANCE_LOG_PATH "log/opir_acceptance.log"
 #endif
 #ifndef ONEQ_RIR_ACCEPTANCE_LOG_PATH
 #define ONEQ_RIR_ACCEPTANCE_LOG_PATH "log/rir_acceptance.log"
@@ -80,8 +80,8 @@ std::string EncodeAcceptanceText(const std::string& text) {
 
 const char* EnvName(AcceptanceChannel channel) {
   switch (channel) {
-    case AcceptanceChannel::kSbirs:
-      return "ONEQ_SBIRS_ACCEPTANCE_LOG_PATH";
+    case AcceptanceChannel::kOpir:
+      return "ONEQ_OPIR_ACCEPTANCE_LOG_PATH";
     case AcceptanceChannel::kRir:
       return "ONEQ_RIR_ACCEPTANCE_LOG_PATH";
     case AcceptanceChannel::kFusion:
@@ -91,13 +91,13 @@ const char* EnvName(AcceptanceChannel channel) {
     case AcceptanceChannel::kPrecision:
       return "ONEQ_PRECISION_ACCEPTANCE_LOG_PATH";
   }
-  return "ONEQ_SBIRS_ACCEPTANCE_LOG_PATH";
+  return "ONEQ_OPIR_ACCEPTANCE_LOG_PATH";
 }
 
 const char* CompileDefaultPath(AcceptanceChannel channel) {
   switch (channel) {
-    case AcceptanceChannel::kSbirs:
-      return ONEQ_SBIRS_ACCEPTANCE_LOG_PATH;
+    case AcceptanceChannel::kOpir:
+      return ONEQ_OPIR_ACCEPTANCE_LOG_PATH;
     case AcceptanceChannel::kRir:
       return ONEQ_RIR_ACCEPTANCE_LOG_PATH;
     case AcceptanceChannel::kFusion:
@@ -107,13 +107,13 @@ const char* CompileDefaultPath(AcceptanceChannel channel) {
     case AcceptanceChannel::kPrecision:
       return ONEQ_PRECISION_ACCEPTANCE_LOG_PATH;
   }
-  return ONEQ_SBIRS_ACCEPTANCE_LOG_PATH;
+  return ONEQ_OPIR_ACCEPTANCE_LOG_PATH;
 }
 
 const char* ChannelLabel(AcceptanceChannel channel) {
   switch (channel) {
-    case AcceptanceChannel::kSbirs:
-      return "sbirs";
+    case AcceptanceChannel::kOpir:
+      return "opir";
     case AcceptanceChannel::kRir:
       return "rir";
     case AcceptanceChannel::kFusion:
@@ -123,7 +123,7 @@ const char* ChannelLabel(AcceptanceChannel channel) {
     case AcceptanceChannel::kPrecision:
       return "precision";
   }
-  return "sbirs";
+  return "opir";
 }
 
 std::string ResolveDefaultPath(AcceptanceChannel channel) {
@@ -236,7 +236,7 @@ class ChannelSink {
 };
 
 ChannelSink& SinkOf(AcceptanceChannel channel) {
-  static ChannelSink sbirs(AcceptanceChannel::kSbirs);
+  static ChannelSink opir(AcceptanceChannel::kOpir);
   static ChannelSink rir(AcceptanceChannel::kRir);
   static ChannelSink fusion(AcceptanceChannel::kFusion);
   static ChannelSink inference(AcceptanceChannel::kInference);
@@ -250,9 +250,9 @@ ChannelSink& SinkOf(AcceptanceChannel channel) {
       return inference;
     case AcceptanceChannel::kPrecision:
       return precision;
-    case AcceptanceChannel::kSbirs:
+    case AcceptanceChannel::kOpir:
     default:
-      return sbirs;
+      return opir;
   }
 }
 

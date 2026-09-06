@@ -53,7 +53,7 @@ cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程�
 | 被测 | RIR 地基站点识别链（RCS+运动真值四维特征）+ 运行期指令指定任务 + 特征量测进五源融合 + 推演 + 威胁 | 三星 GEO 红外交会 + 消息投递地面站融合 + 推演 + **精度评估（五项误差 + AHP）** |
 | 周期 | 400 × 1 s（场景 JSON 里改） | 80 × 1 s |
 | 集成形态 | 挂 5 类组件（§4） | 三卫星实体挂 SBIRS（`kMessage` 投递）；地面站挂 `GroundStationFusionComponent`（内含 `FusionEngine` + `PrecisionEvaluationSession`）（§6） |
-| 验收文件 | `rir_acceptance.log` + `rir_antenna_pattern.csv` + `rir_scan_pattern.csv` + `fusion/inference_acceptance.log` | `precision/sbirs/fusion/inference_acceptance.log` 四份 |
+| 验收文件 | `rir_acceptance.log` + `rir_antenna_pattern.csv` + `rir_scan_pattern.csv` + `fusion/inference_acceptance.log` | `precision/opir/fusion/inference_acceptance.log` 四份 |
 | 集成端日志 | `integration_events.log` + `integration_views.log`（rir/inference/threat 视图行） | `integration_events.log` / `integration_views.log`（消息投递与回执事件） |
 | 冒烟判据 | demo 退出码 0（航迹≥2、融合≥1、视图/CSV 行数达标） | demo 退出码 0（五指标有样本、AHP 合法、`dual_sat_cycles>0`） |
 
@@ -66,7 +66,7 @@ cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程�
 
 | CMake 开关（编译库时） | 控制文件 |
 | --- | --- |
-| `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` | `sbirs_acceptance.log` |
+| `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` | `opir_acceptance.log` |
 | `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` | `rir_acceptance.log`（+ 两份雷达 CSV） |
 | `ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG` | `fusion_acceptance.log` |
 | `ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG` | `inference_acceptance.log` |
@@ -76,7 +76,7 @@ cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程�
 单文件钉到自己的输出目录（示例的 `InitIntegrationLog` 就是这么做的）：
 
 ```
-ONEQ_SBIRS_ACCEPTANCE_LOG_PATH / ONEQ_RIR_ACCEPTANCE_LOG_PATH /
+ONEQ_OPIR_ACCEPTANCE_LOG_PATH / ONEQ_RIR_ACCEPTANCE_LOG_PATH /
 ONEQ_FUSION_ACCEPTANCE_LOG_PATH / ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH /
 ONEQ_PRECISION_ACCEPTANCE_LOG_PATH = <目录>/<文件名>
 ```
@@ -192,7 +192,7 @@ for (cycle = 1..80) {
 auto report = fusion->SummarizeEvaluation();
 ```
 
-验收文件（precision/sbirs/fusion/inference 四份）由库会话写出，路径钉法同 §3。
+验收文件（precision/opir/fusion/inference 四份）由库会话写出，路径钉法同 §3。
 冒烟判据照 demo：`all_metrics_sampled && ahp_valid && 0 < composite ≤ 1 &&
 dual_sat_cycles > 0`（精度评估交会只用前两颗星——库 API 双视线边界，第三星
 进融合不进交会指标）。
@@ -221,7 +221,7 @@ dual_sat_cycles > 0`（精度评估交会只用前两颗星——库 API 双视�
 场景 B（80 周期；基线同理待重跑更新）：
 
 - [ ] demo 退出码 0；stdout 末行 `dual_sat_cycles=N/80`（N>0 即过冒烟）
-- [ ] 四份验收文件齐：`precision`/`sbirs`/`fusion`/`inference`
+- [ ] 四份验收文件齐：`precision`/`opir`/`fusion`/`inference`
 - [ ] `[验收项：层次分析法]` 一行：综合分/等级/CR 有数；`[验收项：关键精度指标]` 有逐周期行 + 汇总行
 - [ ] `[验收项：关机点预测]` = `暂无`（按设计，无推力模型）；`集群目标识别` 不落盘（按设计）
 - [ ] 行数不是硬门控——判据是**文件齐 + 项名齐 + 冒烟过**

@@ -4,7 +4,7 @@
 #   - docs/ has common, review, practice, and the module directories
 #   - each business module uses the design-doc set (design.md + boundaries.md +
 #     data-flow.md + algorithms.md), all declaring Status: active
-#   - common uses the approved common-document set (contract.md + open_questions.md + usage.md)
+#   - common uses the approved common-document set (contract.md + open_questions.md)
 #   - review uses draft Markdown files only, with no nested directory tree
 #   - practice holds flat active-status Markdown for engineering/infra topics
 #   - explainers holds flat HTML explainer pages (canvas figures); no content rules yet
@@ -16,8 +16,7 @@
 # I/O, state ownership) and algorithms.md (algorithm registry + per-algorithm
 # implementation boundaries). The prior README/contract/decisions/history set
 # has been collapsed into this set, and common keeps contract.md (public
-# contract), open_questions.md (non-normative cross-module open questions), and
-# usage.md (verified build/install consumer guidance).
+# contract) and open_questions.md (non-normative cross-module open questions).
 # docs/review is the only approved draft/review holding area; docs/practice holds
 # active engineering-practice docs (build, test, coverage, examples, batch validation).
 
@@ -75,7 +74,6 @@ set(COMMON_DOC_FILES
     "session_contract.md"
     "open_questions.md"
     "rf_architecture.md"
-    "usage.md"
     "issue_codes.md")
 
 set(VIOLATIONS "")

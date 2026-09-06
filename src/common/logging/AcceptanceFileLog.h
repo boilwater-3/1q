@@ -17,7 +17,7 @@ namespace oneq {
 namespace logging {
 
 enum class AcceptanceChannel {
-  kSbirs = 0,
+  kOpir = 0,
   kRir = 1,
   kFusion = 2,
   kInference = 3,

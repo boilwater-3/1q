@@ -291,8 +291,7 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.pointing_disturbance.random_seed);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(
-          fbb, value.scheduler.max_concurrent_nfov_locks,
-          value.scheduler.wide_to_narrow_required_consecutive_hits);
+          fbb, value.scheduler.wide_to_narrow_required_consecutive_hits);
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
   sbirs::replay::SbirsTrackingConfigBuilder tracking_builder(fbb);
   tracking_builder.add_tracking_mode(static_cast<std::int32_t>(value.tracking.tracking_mode));
@@ -344,7 +343,6 @@ bool DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->pointing_disturbance.random_seed = fb->pointing_disturbance()->random_seed();
   }
   if (fb->scheduler() != nullptr) {
-    out->scheduler.max_concurrent_nfov_locks = fb->scheduler()->max_concurrent_nfov_locks();
     out->scheduler.wide_to_narrow_required_consecutive_hits =
         fb->scheduler()->wide_to_narrow_required_consecutive_hits();
   }

@@ -154,12 +154,12 @@ TEST(RirReplayCodecRoundtripTest, DefaultStateRoundtripsByteExact) {
   EXPECT_TRUE(decoded.session_state.active_database_version.empty());
 }
 
-TEST(RirReplayCodecRoundtripTest, RejectsPayloadWithoutV2Identifier) {
+TEST(RirReplayCodecRoundtripTest, RejectsPayloadWithoutCurrentIdentifier) {
   RirCycleReplayRecord record;
   record.session_state.detection_random_seed = 7U;
   std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
   ASSERT_GE(encoded.size(), 8U);
-  // 抹掉 file_identifier "RIR2"，模拟阶段 1 V1/旧记录：必须显式拒绝而非静默误读。
+  // 抹掉 file_identifier "RIR3"，模拟旧版录制（RIR1/RIR2 等）：必须显式拒绝而非静默误读。
   const char* identifier = flatbuffers::GetBufferIdentifier(encoded.data());
   encoded[static_cast<std::size_t>(identifier - encoded.data())] = 'X';
   encoded[static_cast<std::size_t>(identifier - encoded.data()) + 1U] = 'X';
@@ -204,6 +204,17 @@ TEST(RirReplayCodecRoundtripTest, FeatureMeasurementsRoundtripPreserved) {
   with_origin.features.range_profile.peak_energy_concentration = 0.75f;
   with_origin.features.range_profile.resolution_m = 33.31f;
   with_origin.features.range_profile.quality = 0.9f;
+  with_origin.features.polarization_stats.valid = true;
+  with_origin.features.polarization_stats.determinant_mean = 1.25f;
+  with_origin.features.polarization_stats.determinant_std = 0.15f;
+  with_origin.features.polarization_stats.span_mean = 4.5f;
+  with_origin.features.polarization_stats.span_std = 0.25f;
+  with_origin.features.polarization_stats.depolarization_mean = 0.2f;
+  with_origin.features.polarization_stats.depolarization_std = 0.05f;
+  with_origin.features.polarization_stats.psi_mean_deg = 45.0f;
+  with_origin.features.polarization_stats.psi_std_deg = 2.5f;
+  with_origin.features.polarization_stats.tau_mean_deg = -3.0f;
+  with_origin.features.polarization_stats.tau_std_deg = 0.75f;
   with_origin.valid_feature_mask = 0x0FU;
   with_origin.look_az_deg = 12.5f;
   with_origin.look_el_deg = -3.25f;
@@ -262,6 +273,17 @@ TEST(RirReplayCodecRoundtripTest, FeatureMeasurementsRoundtripPreserved) {
   EXPECT_FLOAT_EQ(first.features.range_profile.peak_energy_concentration, 0.75f);
   EXPECT_FLOAT_EQ(first.features.range_profile.resolution_m, 33.31f);
   EXPECT_FLOAT_EQ(first.features.range_profile.quality, 0.9f);
+  EXPECT_TRUE(first.features.polarization_stats.valid);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.determinant_mean, 1.25f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.determinant_std, 0.15f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.span_mean, 4.5f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.span_std, 0.25f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.depolarization_mean, 0.2f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.depolarization_std, 0.05f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.psi_mean_deg, 45.0f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.psi_std_deg, 2.5f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.tau_mean_deg, -3.0f);
+  EXPECT_FLOAT_EQ(first.features.polarization_stats.tau_std_deg, 0.75f);
   EXPECT_EQ(first.valid_feature_mask, 0x0FU);
   EXPECT_FLOAT_EQ(first.look_az_deg, 12.5f);
   EXPECT_FLOAT_EQ(first.look_el_deg, -3.25f);
