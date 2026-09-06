@@ -245,6 +245,160 @@ bool InRectangularFov(float target_az_deg, float target_el_deg, float center_az_
          std::fabs(target_el_deg - center_el_deg) <= 0.5f * fov_el_deg;
 }
 
+struct GroundCoverageEnvelope {
+  bool has_intersection = false;
+  double min_lat_deg = 0.0;
+  double max_lat_deg = 0.0;
+  double min_lon_deg = 0.0;
+  double max_lon_deg = 0.0;
+};
+
+GroundCoverageEnvelope ComputeGroundCoverageEnvelope(
+    const session::SbirsVector3M& satellite_position_eci_m,
+    const SbirsBoresightChain& boresight_chain,
+    float actual_scan_azimuth_sensor_deg,
+    float actual_scan_elevation_sensor_deg,
+    float fov_az_deg,
+    float fov_el_deg,
+    double earth_radius_m,
+    double gmst_rad) {
+  GroundCoverageEnvelope envelope;
+  std::vector<std::pair<double, double>> intersection_points;
+
+  auto try_add_sensor_ray = [&](float az_sensor_deg, float el_sensor_deg) {
+    const session::SbirsVector3M eci_los =
+        boresight_chain.EciLosOfSensorPointing(az_sensor_deg, el_sensor_deg);
+    double lat_deg = 0.0;
+    double lon_deg = 0.0;
+    if (foundation::TryComputeGroundIntersectionLatLonDeg(
+            satellite_position_eci_m, eci_los, earth_radius_m, gmst_rad, &lat_deg, &lon_deg)) {
+      intersection_points.emplace_back(lat_deg, lon_deg);
+    }
+  };
+
+  auto try_add_eci_ray = [&](const session::SbirsVector3M& eci_ray) {
+    double lat_deg = 0.0;
+    double lon_deg = 0.0;
+    if (foundation::TryComputeGroundIntersectionLatLonDeg(
+            satellite_position_eci_m, eci_ray, earth_radius_m, gmst_rad, &lat_deg, &lon_deg)) {
+      intersection_points.emplace_back(lat_deg, lon_deg);
+    }
+  };
+
+  // 1. 视场中心点
+  try_add_sensor_ray(actual_scan_azimuth_sensor_deg, actual_scan_elevation_sensor_deg);
+
+  // 2. 采样视场矩形 4 边缘
+  const float half_az = 0.5f * fov_az_deg;
+  const float half_el = 0.5f * fov_el_deg;
+  constexpr int kEdgeSteps = 16;
+  for (int i = 0; i <= kEdgeSteps; ++i) {
+    const float frac = static_cast<float>(i) / static_cast<float>(kEdgeSteps);
+    const float az = (actual_scan_azimuth_sensor_deg - half_az) + frac * (2.0f * half_az);
+    try_add_sensor_ray(az, actual_scan_elevation_sensor_deg - half_el);
+    try_add_sensor_ray(az, actual_scan_elevation_sensor_deg + half_el);
+  }
+  for (int i = 0; i <= kEdgeSteps; ++i) {
+    const float frac = static_cast<float>(i) / static_cast<float>(kEdgeSteps);
+    const float el = (actual_scan_elevation_sensor_deg - half_el) + frac * (2.0f * half_el);
+    try_add_sensor_ray(actual_scan_azimuth_sensor_deg - half_az, el);
+    try_add_sensor_ray(actual_scan_azimuth_sensor_deg + half_az, el);
+  }
+
+  // 3. 地平圈（Limb）与地心指向（解决全盘高下视场矩形外围脱靶但盘内全覆盖问题）
+  const double sat_distance_m = foundation::Norm(satellite_position_eci_m);
+  if (sat_distance_m > earth_radius_m) {
+    const session::SbirsVector3M u_earth{
+        -satellite_position_eci_m.x / sat_distance_m,
+        -satellite_position_eci_m.y / sat_distance_m,
+        -satellite_position_eci_m.z / sat_distance_m};
+
+    // 检查星下点/地心是否在视场内
+    float nadir_az_deg = 0.0f;
+    float nadir_el_deg = 0.0f;
+    boresight_chain.SensorAzElOfEciVector(u_earth, &nadir_az_deg, &nadir_el_deg);
+    if (InRectangularFov(nadir_az_deg, nadir_el_deg, actual_scan_azimuth_sensor_deg,
+                         actual_scan_elevation_sensor_deg, fov_az_deg, fov_el_deg)) {
+      try_add_eci_ray(u_earth);
+    }
+
+    auto cross_product = [](const session::SbirsVector3M& a,
+                            const session::SbirsVector3M& b) {
+      session::SbirsVector3M r;
+      r.x = a.y * b.z - a.z * b.y;
+      r.y = a.z * b.x - a.x * b.z;
+      r.z = a.x * b.y - a.y * b.x;
+      return r;
+    };
+
+    session::SbirsVector3M temp{0.0, 0.0, 1.0};
+    if (std::fabs(u_earth.z) > 0.9) {
+      temp = session::SbirsVector3M{1.0, 0.0, 0.0};
+    }
+    session::SbirsVector3M p = cross_product(u_earth, temp);
+    const double p_norm = foundation::Norm(p);
+    if (p_norm > 0.0) {
+      p.x /= p_norm;
+      p.y /= p_norm;
+      p.z /= p_norm;
+      session::SbirsVector3M q = cross_product(u_earth, p);
+      const double q_norm = foundation::Norm(q);
+      if (q_norm > 0.0) {
+        q.x /= q_norm;
+        q.y /= q_norm;
+        q.z /= q_norm;
+
+        const double sin_rho = earth_radius_m / sat_distance_m;
+        const double rho_rad = std::asin(std::min(1.0, sin_rho));
+        // 取 0.999 * rho 避免切线掠射引起的数值求交失败
+        const double sample_rho_rad = 0.999 * rho_rad;
+        const double cos_rho = std::cos(sample_rho_rad);
+        const double sin_sample_rho = std::sin(sample_rho_rad);
+
+        constexpr int kLimbSteps = 72;
+        for (int i = 0; i < kLimbSteps; ++i) {
+          const double theta = (2.0 * oneq::common::numerics::kPi * i) / kLimbSteps;
+          const double cos_th = std::cos(theta);
+          const double sin_th = std::sin(theta);
+          const session::SbirsVector3M limb_ray{
+              cos_rho * u_earth.x + sin_sample_rho * (cos_th * p.x + sin_th * q.x),
+              cos_rho * u_earth.y + sin_sample_rho * (cos_th * p.y + sin_th * q.y),
+              cos_rho * u_earth.z + sin_sample_rho * (cos_th * p.z + sin_th * q.z)};
+
+          float limb_az_sensor_deg = 0.0f;
+          float limb_el_sensor_deg = 0.0f;
+          boresight_chain.SensorAzElOfEciVector(limb_ray, &limb_az_sensor_deg,
+                                                &limb_el_sensor_deg);
+          if (InRectangularFov(limb_az_sensor_deg, limb_el_sensor_deg,
+                               actual_scan_azimuth_sensor_deg, actual_scan_elevation_sensor_deg,
+                               fov_az_deg, fov_el_deg)) {
+            try_add_eci_ray(limb_ray);
+          }
+        }
+      }
+    }
+  }
+
+  if (intersection_points.empty()) {
+    envelope.has_intersection = false;
+    return envelope;
+  }
+
+  envelope.has_intersection = true;
+  envelope.min_lat_deg = intersection_points.front().first;
+  envelope.max_lat_deg = intersection_points.front().first;
+  envelope.min_lon_deg = intersection_points.front().second;
+  envelope.max_lon_deg = intersection_points.front().second;
+
+  for (const auto& pt : intersection_points) {
+    envelope.min_lat_deg = std::min(envelope.min_lat_deg, pt.first);
+    envelope.max_lat_deg = std::max(envelope.max_lat_deg, pt.first);
+    envelope.min_lon_deg = std::min(envelope.min_lon_deg, pt.second);
+    envelope.max_lon_deg = std::max(envelope.max_lon_deg, pt.second);
+  }
+  return envelope;
+}
+
 SbirsPointingDisturbanceParameters DisturbanceParameters(
     const config::SbirsPointingDisturbanceConfig& config) {
   SbirsPointingDisturbanceParameters parameters;
@@ -848,42 +1002,39 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const float actual_scan_elevation_sensor_deg = scan_elevation_sensor_deg;
 
   if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    // 覆盖区四角 = 实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场，经指向链
-    // 合成 ECI 视线后与地球圆球交会（kEarthRadiusM，与遮挡判定同口径），交点旋回
-    // 固连地球取经纬度；指向太空的角记 miss。驻留时间 = WFOV 方位视场 / 扫描速率
+    // 覆盖四角 = 视场矩形与地球视盘交集区域的经纬度范围框角点（采样视场边界与地平圈圆弧
+    // 取经纬度包络），映射为规范顺序 4 角（西北、东北、东南、西南）；视场完全脱靶记 miss。
+    // 中心为实际扫描中心与地球交点（指向太空记 miss）。驻留时间 = WFOV 方位视场 / 扫描速率
     // （目标被方位向扫描穿越视场所需时间；scan_rate=0 的退化配置记 0）。
     // 中译：宽视场地面覆盖区事件（周期号、行内扫描相位与俯仰行号、视场中心 ECI 角、
-    //       覆盖区四角与中心的经纬度、驻留时间、扫描速率）。
+    //       覆盖四角与中心的经纬度、驻留时间、扫描速率）。
     // 标识：验收日志 E1——3.2.1.3.1/3.2.1.3.2.2"各扫描周期地面覆盖区域坐标与驻留
     //       时间"证据；圆球地球模型（椭球为已登记非目标，见 boundaries.md）。
-    const float half_fov_az_deg = 0.5f * mission.wide_field_fov_az_deg;
-    const float half_fov_el_deg = 0.5f * mission.wide_field_fov_el_deg;
     const float dwell_s = mission.scan_rate_deg_per_sec > 0.0f
                               ? mission.wide_field_fov_az_deg / mission.scan_rate_deg_per_sec
                               : 0.0f;
-    std::string corners;
-    for (int corner_index = 0; corner_index < 4; ++corner_index) {
-      const float corner_az_deg =
-          actual_scan_azimuth_sensor_deg +
-          ((corner_index & 1) == 0 ? -half_fov_az_deg : half_fov_az_deg);
-      const float corner_el_deg =
-          actual_scan_elevation_sensor_deg +
-          ((corner_index & 2) == 0 ? -half_fov_el_deg : half_fov_el_deg);
-      double corner_lat_deg = 0.0;
-      double corner_lon_deg = 0.0;
-      if (!corners.empty()) {
-        corners += " ";
-      }
-      if (foundation::TryComputeGroundIntersectionLatLonDeg(
-              satellite_position_eci_m,
-              boresight_chain.EciLosOfSensorPointing(corner_az_deg, corner_el_deg), kEarthRadiusM,
-              gmst_rad, &corner_lat_deg, &corner_lon_deg)) {
-        corners += FormatFloat(static_cast<float>(corner_lat_deg)) + "," +
-                   FormatFloat(static_cast<float>(corner_lon_deg));
-      } else {
-        corners += "miss";
-      }
+    const GroundCoverageEnvelope envelope = ComputeGroundCoverageEnvelope(
+        satellite_position_eci_m, boresight_chain, actual_scan_azimuth_sensor_deg,
+        actual_scan_elevation_sensor_deg, mission.wide_field_fov_az_deg,
+        mission.wide_field_fov_el_deg, kEarthRadiusM, gmst_rad);
+
+    std::string corners_csv;
+    if (envelope.has_intersection) {
+      // 规范 4 角顺序：西北 (lat_max, lon_min)、东北 (lat_max, lon_max)、
+      //                东南 (lat_min, lon_max)、西南 (lat_min, lon_min)
+      const std::string lat_max_str = FormatFloat(static_cast<float>(envelope.max_lat_deg));
+      const std::string lat_min_str = FormatFloat(static_cast<float>(envelope.min_lat_deg));
+      const std::string lon_min_str = FormatFloat(static_cast<float>(envelope.min_lon_deg));
+      const std::string lon_max_str = FormatFloat(static_cast<float>(envelope.max_lon_deg));
+
+      corners_csv = lat_max_str + "," + lon_min_str + ";" +
+                    lat_max_str + "," + lon_max_str + ";" +
+                    lat_min_str + "," + lon_max_str + ";" +
+                    lat_min_str + "," + lon_min_str;
+    } else {
+      corners_csv = "miss;miss;miss;miss";
     }
+
     double center_lat_deg = 0.0;
     double center_lon_deg = 0.0;
     const bool center_valid = foundation::TryComputeGroundIntersectionLatLonDeg(
@@ -895,15 +1046,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         center_valid ? FormatFloat(static_cast<float>(center_lat_deg)) + "," +
                            FormatFloat(static_cast<float>(center_lon_deg))
                      : std::string("miss");
-    const std::string corners_csv = [&corners]() {
-      std::string text = corners;
-      for (char& ch : text) {
-        if (ch == ' ') {
-          ch = ';';
-        }
-      }
-      return text;
-    }();
+
     std::string footprint = "覆盖四角经纬=[" + corners_csv + "] 中心=(" + center_text +
                             ") 驻留=" + oneq::logging::FormatF(dwell_s, 3) + "s";
     // 规范口径（验收判定标准 第12项）：地面覆盖区域坐标与驻留时间 + 卫星ID。

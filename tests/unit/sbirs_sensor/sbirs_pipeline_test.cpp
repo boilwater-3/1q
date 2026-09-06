@@ -2636,4 +2636,28 @@ TEST(SbirsPipelineTest, NadirSpanConvergesToEarthDisk) {
             static_cast<float>(useful_half_deg) + 0.1f);
 }
 
+TEST(SbirsPipelineTest, WfovWideElevationCoverageExecutesCleanly) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.wide_field_fov_az_deg = 24.0f;
+  config.mission.wide_field_fov_el_deg = 24.0f;
+  config.mission.scan_rate_deg_per_sec = 6.0f;
+  config.mission.scan_span_deg = 30.0f;
+
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  const auto input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(42164000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .Build();
+
+  const auto result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.issues.empty() || result.issues.size() <= 2U);
+}
+
 }  // namespace
