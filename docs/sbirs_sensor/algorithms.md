@@ -35,7 +35,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位往复扫正交组合（2026-08-31 起牛耕式到边反向）；输出行中心 ECI 俯仰 | 生产可用（2026-08-31 往复化） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
-| WFOV 地面覆盖区投影 | 实际扫描中心 ±半视场四角经指向链到 ECI，与地球圆球交会（最近正根），交点旋回 ECEF 取地心经纬度；指向太空的角记 miss | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| WFOV 地面覆盖区投影 | 实际扫描中心与视场经指向链到 ECI，采样视场矩形边界与地平圈圆弧计算与地球圆球交集区域包络，映射为 4 角经纬度；完全脱靶记 miss | 生产可用（仅验收日志消费，2026-08-18；2026-09-06 裁剪包络化） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | 焦平面脱靶量映射 | 目标相对 NFOV 指向中心的逐轴角差经 x=f·tan(Δaz)、y=f·tan(Δel) 映射为米/像素脱靶量 | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | 宽窄切换连续命中门 | 逐目标累计连续 WFOV 门通过次数，达到 `wide_to_narrow_required_consecutive_hits`（默认 1）才允许进入 NFOV 调度；门失败/消失清零，捕获清零 | 生产可用（默认 1 行为逐位不变，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 
@@ -395,11 +395,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF）写入 `sbirs_acceptance.log`，
   四段同一行，人读验收材料。项表见 `docs/review/acceptance_item_catalog_2026-08-22.md`。
 - **派生量与公式**：
-  1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场共 4 角，
-     每角经 boresight 链合成 ECI 视线后与地球圆球求交（半无限射线最近正根；
-     `TryIntersectRayWithSphere`），交点按周期 GMST 旋回 ECEF 取地心经纬度
-     （`ComputeGeocentricLatLonDeg`）；圆球模型与遮挡门控同口径（`kEarthRadiusM`），
-     指向太空的角记 `miss`。
+  1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）与视场矩形，
+     通过采样视场 4 边缘与地球视盘地平圈（Limb）圆弧，经 boresight 链合成 ECI 视线后
+     与地球圆球求交（半无限射线最近正根；`TryIntersectRayWithSphere`），交点按周期
+     GMST 旋回 ECEF 取地心经纬度（`ComputeGeocentricLatLonDeg`）；提取落盘交集区域的
+     经纬度包络 [lat_min, lat_max], [lon_min, lon_max]，映射为规范 4 角（西北、东北、
+     东南、西南）输出于 `覆盖四角经纬` 字段；圆球模型与遮挡门控同口径（`kEarthRadiusM`），
+     视场完全脱靶记 `miss`。
   2. **驻留时间**：`dwell_s = wide_field_fov_az_deg / scan_rate_deg_per_sec`（方位向扫描
      穿越视场时间；`scan_rate=0` 退化配置记 0）。
   3. **焦平面脱靶量**：目标传感器系角 − NFOV 实际指向角，逐轴 `x = f·tan(Δaz)`、
@@ -415,8 +417,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      输出角（滤波/误差注入全部完成后）− 真值角；方位差按最短角差回绕（wrap-aware）。
      仅日志字段，不进任何输出结构。
 - **反直觉点**：
-  1. 覆盖区四角在**传感器系**加偏移再经链变换（含姿态/安装/失准），不是在 ECI 角度直接
-     加偏移——identity 链下两者才等价。
+  1. 覆盖区计算在**传感器系**采样视场矩形与地平圈再经链变换（含姿态/安装/失准），不是在
+     ECI 角度直接加偏移。24° 俯仰下视场矩形外围恒在盘外，但视盘完全落在视场内部，故必须
+     结合地平圈圆弧采样以准确提取落盘交集包络。
   2. 连续命中计数在**候选创建点**自增（当周期即计 1），默认阈值 1 下新候选当周期即可调度，
      行为与改造前逐位一致。
   3. 驻留时间是配置派生标量（视场/速率），不依赖目标；与逐周期输出配对供验收核对。
