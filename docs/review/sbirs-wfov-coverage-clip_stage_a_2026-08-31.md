@@ -83,15 +83,15 @@ Explicitly out of scope:
 
 Behavior boundary:
 - Inputs: 与现有一致——实际扫描中心传感器系 az/el（含共模扰动与限位钳制）、±半视场、指向链、卫星 ECI 位置、GMST、`kEarthRadiusM`。
-- Outputs: 第 12 项行 `卫星ID=N 覆盖区域=纬[最小,最大] 经[最小,最大] 中心=(lat,lon) 驻留=X.XXXs`；第 14 项行 `宽视场扫描覆盖区域=` 后接同内容；中心沿用现有交会与 `miss` 语义；视场与盘无交时写 `覆盖区域=miss`。
+- Outputs: 第 12 项行 `卫星ID=N 覆盖四角经纬=[p0;p1;p2;p3] 中心=(lat,lon) 驻留=X.XXXs`（修订 5：字段名维持原验收指标格式，p0-p3 为交集包络映射的西北/东北/东南/西南 4 角）；第 14 项行 `宽视场扫描覆盖区域=` 后接同内容；中心沿用现有交会与 `miss` 语义；视场与盘无交时四角写 `miss;miss;miss;miss`。
 - Errors/fallback: 采样点逐点调用既有 `TryComputeGroundIntersectionLatLonDeg`；单点失败跳过；全部失败按无交处理。
-- Lifecycle/debug/trace: 仅验收日志通道（`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`），不进公开输出。
+- Lifecycle/debug/trace: 仅验收日志通道（合并 main 后为 `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG`，写 `opir_acceptance.log`；分支基点时名为 `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`），不进公开输出。
 
 Acceptance gates:
 - Build: `cmake --build --preset llvm-ninja-release-local`（库 + `sbirs_triple_sat_fix_messages`）。
 - Focused tests: `ctest --preset llvm-ninja-release-local -R "unit::sbirs_sensor"` 全过。
-- Contract tests: 场景复跑 `dual_sat_cycles ≥ 76`、捕获 4/4 不回退。
-- Characterization tests: 新日志每行覆盖区均有纬/经包络（扇区盘内 + 俯仰 24° 下交集恒非空），中心 240/240 落盘，无四角字段残留。
+- Contract tests: 场景复跑 `dual_sat_cycles` 不低于合并基线且捕获不回退（修订 6：合并后 main 场景为 8.7°+cross-cue 扫描方式，基线 79/80；24° 宽俯仰模式实测同为 79/80。原 `≥76` 为分支基点旧数字，因 main 侧 cross-cue 演化不再适用）。
+- Characterization tests: 两种扫描模式覆盖区行全量落盘（480 行/模式 = 240 周期×2 项）；整场 `miss;miss;miss;miss` 仅出现在扫描俯仰栅格远端+安装偏置致视场整体脱靶的周期（104 星）；中心 `miss` 忠实维持既有语义。
 
 Non-goals:
 - 反子午线经度环绕处理、椭球地球、交集多边形（只给包络）、扫描机构与跨度收敛逻辑变更、其他场景迁移。
@@ -103,23 +103,27 @@ Non-goals:
 - 修订 3（2026-08-31，用户裁定）：`functional_acceptance_test_criteria_ocr.md` 第 12/14 项同步修订。
 - 修订 4（2026-08-31，用户裁定）：交集计算采用视场矩形边界 az/el 采样 + 复用 `TryComputeGroundIntersectionLatLonDeg`，不引入解析裁剪。
 - 修订 5（2026-09-06，用户裁定）：格式严格维持原验收指标对应的 `覆盖四角经纬=[p0;p1;p2;p3] 中心=(...) 驻留=...s`，不改动字段名；将交集/裁剪包络映射为西北/东北/东南/西南 4 角坐标填入，确保与下游验收判据 100% 对应。
+- 修订 6（2026-09-06，用户裁定）：main 的扫描方式（宽场 8.7°+cross-cue）与本分支 24° 宽俯仰为两种并存模式，均须实测通过后方可合并；验收门槛基线按合并后 main 场景重建（见 §3）；合并后场景保持 main 版配置（8.7°+cross-cue），24° 作为覆盖代码的验证模式临时切换、不落库。
 
 ## §4 运行记录（Stage C 后填写）
 
 1、实现范围：
-   - `src/sbirs_sensor/pipeline/SbirsPipeline.cpp`：新增文件内静态 `ComputeGroundCoverageEnvelope` 辅助函数（联合视场矩形 4 边 + 地平圈圆弧与星下点采样，提取落盘交集区域经纬度包络），重构覆盖区写出段，映射为西北/东北/东南/西南 4 角，严格维持既有 `覆盖四角经纬=[...]` 及第 14 项 `宽视场扫描覆盖区域=覆盖四角经纬=[...]` 格式；
-   - `tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp`：补充 `WfovWideElevationCoverageExecutesCleanly` 单元测试。
-2、验证命令与结果：
-   - `cmake --build --preset llvm-ninja-release-local --target 1q_sbirs_sensor_unit_tests`: pass
-   - `ctest --preset llvm-ninja-release-local -R "unit::sbirs_sensor" --output-on-failure`: pass (1/1 passed, 0.68s)
-   - `cmake --build --preset llvm-ninja-release-local --target sbirs_triple_sat_fix_messages`: pass
-   - `./build/llvm-ninja-release-local/bin/sbirs_triple_sat_fix_messages`: pass (`dual_sat_cycles=74/80`，AHP 校验通过，综合分 0.431339，4/4 捕获不回退)
-   - 特征化日志核验：`examples/log/sbirs_triple_sat_fix_messages/sbirs_acceptance.log` 中 `覆盖四角经纬=[...]` 240/240 周期全落盘（0 miss），中心 141 miss 忠实维持基线。
+   - `src/sbirs_sensor/pipeline/SbirsPipeline.cpp`：新增文件内静态 `ComputeGroundCoverageEnvelope` 辅助函数（视场矩形 4 边传感器系采样 + 地平圈圆弧 ECI 采样（角半径 0.999ρ 防切线掠射求交失败）+ 盘内星下点，提取落盘交集经纬度包络），覆盖区写出段映射为西北/东北/东南/西南 4 角，严格维持 `覆盖四角经纬=[...]` 及第 14 项 `宽视场扫描覆盖区域=...` 格式；
+   - 2026-09-06 合并 main（0800aa15）：适配 OPIR 验收通道改名（`ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` / `opir_acceptance.log`）、cross-cue、单镜筒 NFOV 等基点后演化；`algorithms.md` 取 main 新结构并更新覆盖区登记行 / §6 第 1 条 / 反直觉点 8；单测文件与 main 侧 cross-cue 两用例并存；
+   - `tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp`：`WfovWideElevationCoverageExecutesCleanly`（冒烟级，执行不回退）。
+2、验证命令与结果（合并后树，OPIR 开关 ON）：
+   - `cmake --build --preset llvm-ninja-release-local --target 1q_sbirs_sensor_unit_tests sbirs_triple_sat_fix_messages`: pass（342/342）
+   - `ctest --preset llvm-ninja-release-local -R "unit::sbirs_sensor"`: pass（100%，1/1 套件）
+   - 模式 A（main 扫描方式：宽场 8.7°+cross-cue，场景原样运行）：`dual_sat_cycles=79/80`、综合分 0.376121；覆盖区 480/480 行落盘，整场 miss 6 行（104 星周期 37/50/63：安装角偏置+俯仰栅格远端整场指太空，与"指向太空记 miss"旧口径一致），中心 miss 146 行忠实维持；104 星 118 行经度跨 ±180°（反子午线非目标显现，见残留风险）；
+   - 模式 B（24° 宽俯仰：场景临时改 8.7→24.0 运行后还原，不落库）：`dual_sat_cycles=79/80`、综合分 0.376121（与模式 A 逐项相同——俯仰加宽不触及目标俯仰 ≤2.7° 的检测门）；覆盖区 480/480 行落盘（包络为全可见盘，纬度 ±78.8°、驻留 4.000s=24°/6°/s），整场 miss 4 行（104 星周期 31/38），中心 miss 274 行；
+   - 日志：`examples/log/sbirs_triple_sat_fix_messages/opir_acceptance.log`（未跟踪运行产物，末次运行=模式 B）；两模式快照另存 /tmp/opir_mode2_8p7_crosscue.log、/tmp/opir_mode1_24deg.log。
 3、权威回写去向：
-   - 正向边界：`docs/sbirs_sensor/algorithms.md`（第 38 行表格条目更新及第 398–421 行派生量与反直觉点更新；锁定证据 [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]）
+   - 正向边界：`docs/sbirs_sensor/algorithms.md`（登记表 OPIR 验收派生量行 + §6 第 1 条包络语义 + 反直觉点 8"覆盖区包络必须联合地平圈采样"）；`docs/sbirs_sensor/boundaries.md`（能力决策表新增覆盖区交集多边形、反子午线环绕两条 reject）
+   - 评审记录：`docs/review/functional_acceptance_test_criteria_ocr.md` 第 12 项数据描述补包络语义（修订 3 收口）
    - 否决记录：无新增否决方案
    - 开放议题：维持既有无新增
-   - 证据锁：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test::WfovWideElevationCoverageExecutesCleanly]
+   - 证据锁：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]（几何求交原语）、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test::WfovWideElevationCoverageExecutesCleanly]（管线冒烟）
 4、残留风险：
-   - 经度跨 180° 反子午线环绕情况按非目标（已在 §3 冻结契约明确），当前 GEO 三星覆盖区无反子午线畸变影响。
+   - 反子午线（原记录"当前 GEO 三星覆盖区无反子午线畸变影响"不成立，更正）：104 星覆盖区跨 ±180° 时包络经度取大圈方向（如 lon_min=-177.3、lon_max=178.7，真实区域仅 ~4° 宽），数值偏大失真——按已裁定非目标不处理（boundaries.md 已登记），验收读数须知；
+   - 新单测为冒烟级（仅断言执行不回退），包络数值正确性由两模式场景特征化日志背书。
 5、后续冻结项：无。
