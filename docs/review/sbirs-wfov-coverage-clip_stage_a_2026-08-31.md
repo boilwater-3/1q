@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-31
 Review-Baseline: `evidence/sbirs-wfov-coverage-clip` @ `d4ca33b0`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -102,12 +102,24 @@ Non-goals:
 - 修订 2（2026-08-31，用户裁定）：俯仰视场恢复 24°（与 DSP 式历史口径一致）。
 - 修订 3（2026-08-31，用户裁定）：`functional_acceptance_test_criteria_ocr.md` 第 12/14 项同步修订。
 - 修订 4（2026-08-31，用户裁定）：交集计算采用视场矩形边界 az/el 采样 + 复用 `TryComputeGroundIntersectionLatLonDeg`，不引入解析裁剪。
+- 修订 5（2026-09-06，用户裁定）：格式严格维持原验收指标对应的 `覆盖四角经纬=[p0;p1;p2;p3] 中心=(...) 驻留=...s`，不改动字段名；将交集/裁剪包络映射为西北/东北/东南/西南 4 角坐标填入，确保与下游验收判据 100% 对应。
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+   - `src/sbirs_sensor/pipeline/SbirsPipeline.cpp`：新增文件内静态 `ComputeGroundCoverageEnvelope` 辅助函数（联合视场矩形 4 边 + 地平圈圆弧与星下点采样，提取落盘交集区域经纬度包络），重构覆盖区写出段，映射为西北/东北/东南/西南 4 角，严格维持既有 `覆盖四角经纬=[...]` 及第 14 项 `宽视场扫描覆盖区域=覆盖四角经纬=[...]` 格式；
+   - `tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp`：补充 `WfovWideElevationCoverageExecutesCleanly` 单元测试。
+2、验证命令与结果：
+   - `cmake --build --preset llvm-ninja-release-local --target 1q_sbirs_sensor_unit_tests`: pass
+   - `ctest --preset llvm-ninja-release-local -R "unit::sbirs_sensor" --output-on-failure`: pass (1/1 passed, 0.68s)
+   - `cmake --build --preset llvm-ninja-release-local --target sbirs_triple_sat_fix_messages`: pass
+   - `./build/llvm-ninja-release-local/bin/sbirs_triple_sat_fix_messages`: pass (`dual_sat_cycles=74/80`，AHP 校验通过，综合分 0.431339，4/4 捕获不回退)
+   - 特征化日志核验：`examples/log/sbirs_triple_sat_fix_messages/sbirs_acceptance.log` 中 `覆盖四角经纬=[...]` 240/240 周期全落盘（0 miss），中心 141 miss 忠实维持基线。
+3、权威回写去向：
+   - 正向边界：`docs/sbirs_sensor/algorithms.md`（第 38 行表格条目更新及第 398–421 行派生量与反直觉点更新；锁定证据 [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]）
+   - 否决记录：无新增否决方案
+   - 开放议题：维持既有无新增
+   - 证据锁：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test::WfovWideElevationCoverageExecutesCleanly]
+4、残留风险：
+   - 经度跨 180° 反子午线环绕情况按非目标（已在 §3 冻结契约明确），当前 GEO 三星覆盖区无反子午线畸变影响。
+5、后续冻结项：无。
