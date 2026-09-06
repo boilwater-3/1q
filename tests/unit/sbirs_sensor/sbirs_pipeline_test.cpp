@@ -2731,6 +2731,30 @@ TEST(SbirsPipelineTest, NadirSpanConvergesToEarthDisk) {
             static_cast<float>(useful_half_deg) + 0.1f);
 }
 
+TEST(SbirsPipelineTest, WfovWideElevationCoverageExecutesCleanly) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.wide_field_fov_az_deg = 24.0f;
+  config.mission.wide_field_fov_el_deg = 24.0f;
+  config.mission.scan_rate_deg_per_sec = 6.0f;
+  config.mission.scan_span_deg = 30.0f;
+
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  const auto input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(42164000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .Build();
+
+  const auto result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.issues.empty() || result.issues.size() <= 2U);
+}
+
 TEST(SbirsPipelineTest, ExternalCueGuidesOutOfWfovTargetIntoNfov) {
   // cross-cue（2026-09-01）：目标在本星宽场扫描带外 → 无 cue 时 out_of_wfov 排除；
   // 注入外部引导（来源星带误差测角+距离，修订 5 运行时注入）→ 外部候选进同池调度

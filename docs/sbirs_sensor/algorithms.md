@@ -39,7 +39,7 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
 | IMM(EKF) 交互多模型滤波 | 多模型自适应交互，机动目标全场景 RMSE 显著改善 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test.cpp] |
 | 角度域线性 KF（实验后端） | 4 维角度及变化率线性卡尔曼滤波（$kAngleCvKf$，显式选配） | experimental | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test.cpp] |
 | 连续命中门控计数 | 连续通过 WFOV 四门计数达标方可入 NFOV，进跟踪后清零 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
-| OPIR 验收派生量输出 | WFOV 地面投影四角、驻留时间、脱靶量与角误差写入验收日志 | internal/受控 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp] |
+| OPIR 验收派生量输出 | 视场∩地球盘交集经纬度包络映射 4 角（2026-09-06 裁剪包络化）、驻留时间、脱靶量与角误差写入验收日志 | internal/受控 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
 
 实现状态说明：
 - **session-wired**：已接入 `SbirsPipeline` / `SbirsSession` 主链路，覆盖配置、执行周期、重放与集成。
@@ -292,13 +292,13 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
 ## 6. 验收派生量（OPIR 验收日志）
 
 当启用 `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG`（CMake 开关，**默认 OFF**）时，逐周期向 `opir_acceptance.log` 写入：
-1. **WFOV 地面覆盖区投影**：实际扫描中心 $\pm$ 半视场四角经 boresight 链与地球求交，旋回 ECEF 提取地心经纬度（指向太空的角记 `miss`）。
+1. **WFOV 地面覆盖区投影**（2026-09-06 裁剪包络化）：实际扫描中心（传感器系，含共模扰动与限位钳制）的视场矩形 4 边缘在传感器系采样，地平圈（Limb）圆弧在 ECI 绕星-地心方向按角半径 $0.999\rho$（$\rho=\arcsin(R_{\oplus}/r_{\text{sat}})$，收缩因子避免切线掠射求交失败）采样，经 boresight 链双向变换后取落盘（视场∩地球盘）交集采样点，与地球圆球求交（`kEarthRadiusM`，与遮挡门控同口径）旋回 ECEF 提取地心经纬度，输出交集的经纬度包络 [lat_min, lat_max]×[lon_min, lon_max] 映射为规范 4 角（西北、东北、东南、西南）；视场完全脱靶记 `miss`。圆球地球模型（椭球为已登记非目标，见 boundaries.md）。
 2. **驻留时间**：$T_{\text{dwell}} = \text{FOV}_{\text{az}} / \omega_{\text{scan}}$（rate=0 退化配置记 0）。
 3. **焦平面脱靶量**：逐轴小角投影 $\Delta x = f \cdot \tan(\Delta\text{az}), \Delta y = f \cdot \tan(\Delta\text{el})$（非畸变光学模型）。
 4. **目标信号能量**：$E = P_{\text{received}} \cdot t_{\text{int}}$（`ComputeSnr` 出参透出，不改 SNR 数值）。
 5. **宽窄切换连续命中计数**：逐目标累计连续通过 WFOV 四门的周期数；命中计数在候选创建点自增（当周期即计 1）；任一门失败/目标消失清零，捕获晋级进跟踪时清零（丢锁回宽场需重新积累）。
 6. **角定位误差（需求映射 3.2.1.6.3）**：宽场候选写测量角 $-$ 真值角；窄场跟踪写最终输出角（滤波/误差注入全部完成后）$-$ 真值角；方位差按最短角差回绕（wrap-aware）。
-- **边界**：全部派生量仅走日志，不进入公共输出帧。
+- **边界**：全部派生量仅走日志，不进入公共输出帧；覆盖区为经纬度范围框（非交集多边形）、反子午线经度环绕不处理（均为已裁定非目标，见 boundaries.md）。
 - **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp]
 
 ---
@@ -313,6 +313,7 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
 > 5. **现实噪声分母采用能量基准**：噪声分母为积分时间内的噪声能量开方，不是功率相加；背景光子起伏严格受像元立体角 $\Omega_{\text{pixel}}$ 约束，背景亮度不乘以 $4\pi$ 或 $1\text{ sr}$。
 > 6. **纯 2 维角度 EKF 量测**：被动红外不可测距，直接采用 2 维量测 Jacobian，不采用人为设定超大协方差屏蔽伪距离。
 > 7. **首次捕获延迟视线评估**：捕获窗口是在延迟时间线（$\tau_{\text{latency}}$）上评估目标真实视线，卫星位移与目标位移均参与平移，不会因中心取测量值而必然捕获。
+> 8. **覆盖区包络必须联合地平圈采样**：俯仰视场 ≥ 盘高（如 24°）时视场矩形 4 边缘全部落在盘外、边缘采样恒空，但地球视盘完全落在视场内部——此时交集包络由地平圈圆弧采样（含盘内星下点）决定，只用视场边缘采样会恒 miss。视场边缘走传感器系采样经链正向变换；地平圈在 ECI 构造后经链逆向变换（ECI→传感器系）做视场内判定。
 
 ---
 

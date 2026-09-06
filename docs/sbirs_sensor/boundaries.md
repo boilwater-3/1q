@@ -191,6 +191,8 @@ session 等价；这些性质只能由对应的 unit/integration/replay 测试�
 | 探测器像元、背景杂波与图像帧 | defer outside current product boundary | 仅在产品目标转为图像检测/TBD/NCC 且具备 PSF/MTF、焦距、像元几何、背景和独立物理真值时重开；归属独立 imaging 子系统 |
 | 验收信息日志（`opir_acceptance.log`） | implemented（编译期门控） | `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` 默认 OFF 零开销；开启后写四段中文验收行，不进 `1q_library.log` |
 | WGS84 椭球地面投影 | reject（保持圆球单口径） | 覆盖区投影与遮挡判定共用 `kEarthRadiusM` 圆球；引入椭球须先给出双地球模型口径分叉的可复现验收失败 |
+| 覆盖区交集多边形 | reject（范围框口径，2026-09-06 裁剪包络化） | 覆盖区输出为视场∩地球盘交集的经纬度范围框，映射西北/东北/东南/西南 4 角；不做交集多边形顶点序列（盘缘弧线区域被范围框放大为已知失真）；重开须给出按多边形消费该字段的外部判据 |
+| 反子午线经度环绕处理 | reject | 覆盖区跨 ±180° 时范围框经度取大圈方向（三星场景 104 星 118/480 行显现，数值偏大失真）；按字段消费 4 角数值的现行验收判据可读但须知此失真；重开须给出按最短弧口径消费经度的外部判据 |
 | 威胁等级/航迹质量/任务优先级联合评分 | reject in sensor ownership | 分层契约归决策层（threat_assessment）；传感器侧只输出通道调度/资源跳过/失败回退事件 |
 | 高精度轨道传播 | reject in sensor ownership | cycle input 已提供同一时标下的平台/目标状态；默认归属场景或平台动力学模块 |
 | 地面任务规划、区域重访与星座协同 | reject in sensor ownership | 属于任务规划/星座资源域，应通过 session config/input 驱动传感器 |
